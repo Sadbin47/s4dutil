@@ -18,7 +18,7 @@ unmount_disk "$DISK"
 # Wipe existing partition table
 info "Wiping existing partition table..."
 wipefs -af "$DISK" >/dev/null 2>&1 || true
-sgdisk --zap-all "$DISK" >/dev/null 2>&1 || true
+dd if=/dev/zero of="$DISK" bs=512 count=34 >/dev/null 2>&1 || true
 
 if is_uefi; then
     ###################
@@ -31,12 +31,15 @@ if is_uefi; then
     info "EFI partition: ${EFI_SIZE}MB"
     info "Root partition: remaining space (XFS)"
     
-    # Create partitions with sgdisk
-    # 1. EFI System Partition
-    sgdisk -n 1:0:+${EFI_SIZE}M -t 1:ef00 -c 1:"EFI" "$DISK"
+    # Create GPT partition table with parted
+    parted -s "$DISK" mklabel gpt
+    
+    # 1. EFI System Partition (1MB to 513MB)
+    parted -s "$DISK" mkpart "EFI" fat32 1MiB "${EFI_SIZE}MiB"
+    parted -s "$DISK" set 1 esp on
     
     # 2. Root partition (remaining space)
-    sgdisk -n 2:0:0 -t 2:8300 -c 2:"root" "$DISK"
+    parted -s "$DISK" mkpart "root" xfs "${EFI_SIZE}MiB" 100%
     
 else
     ###################
@@ -45,17 +48,12 @@ else
     info "Creating MBR partition table for BIOS..."
     info "Root partition: entire disk (XFS)"
     
-    # Create single root partition with fdisk
-    {
-        echo o      # Create new MBR partition table
-        echo n      # New partition (root)
-        echo p      # Primary
-        echo 1      # Partition number
-        echo        # First sector (default)
-        echo        # Last sector (default - use all)
-        echo a      # Toggle bootable flag
-        echo w      # Write changes
-    } | fdisk "$DISK" >/dev/null 2>&1
+    # Create MBR partition table with parted
+    parted -s "$DISK" mklabel msdos
+    
+    # Single root partition (entire disk)
+    parted -s "$DISK" mkpart primary xfs 1MiB 100%
+    parted -s "$DISK" set 1 boot on
 fi
 
 # Wait for kernel to recognize partitions
