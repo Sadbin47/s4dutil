@@ -4,29 +4,235 @@
 
 set -e
 
-# Colors for output
-RC='\033[0m'
-RED='\033[31m'
-GREEN='\033[32m'
-YELLOW='\033[33m'
-CYAN='\033[36m'
-BOLD='\033[1m'
+# ═══════════════════════════════════════════════════════════════
+#                         COLOR DEFINITIONS
+# ═══════════════════════════════════════════════════════════════
 
-# Print functions
-info() {
-    printf "%b\n" "${CYAN}[INFO]${RC} $1"
+# Reset
+RC='\033[0m'
+NC='\033[0m'
+
+# Regular Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+ORANGE='\033[0;33m'
+
+# Text Styles
+BOLD='\033[1m'
+DIM='\033[2m'
+ITALIC='\033[3m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Background Colors
+BG_RED='\033[41m'
+BG_GREEN='\033[42m'
+BG_YELLOW='\033[43m'
+BG_BLUE='\033[44m'
+BG_PURPLE='\033[45m'
+BG_CYAN='\033[46m'
+
+# Gradient-like colors (256 color mode)
+GRAD1='\033[38;5;39m'   # Light blue
+GRAD2='\033[38;5;45m'   # Cyan
+GRAD3='\033[38;5;51m'   # Light cyan
+GRAD4='\033[38;5;87m'   # Pale cyan
+GRAD5='\033[38;5;123m'  # Aqua
+
+# Accent colors
+ACCENT1='\033[38;5;213m'  # Pink
+ACCENT2='\033[38;5;141m'  # Light purple
+ACCENT3='\033[38;5;183m'  # Lavender
+
+# ═══════════════════════════════════════════════════════════════
+#                     STATUS OUTPUT FUNCTIONS
+# ═══════════════════════════════════════════════════════════════
+
+# Colored status functions with icons
+ok() {
+    printf "%b\n" "${GREEN}${BOLD}  ✓${RC} ${WHITE}$1${RC}"
 }
 
-success() {
-    printf "%b\n" "${GREEN}[OK]${RC} $1"
+info() {
+    printf "%b\n" "${BLUE}${BOLD}  ℹ${RC} ${WHITE}$1${RC}"
 }
 
 warn() {
-    printf "%b\n" "${YELLOW}[WARN]${RC} $1"
+    printf "%b\n" "${YELLOW}${BOLD}  ⚠${RC} ${YELLOW}$1${RC}"
+}
+
+err() {
+    printf "%b\n" "${RED}${BOLD}  ✗${RC} ${RED}$1${RC}"
 }
 
 error() {
-    printf "%b\n" "${RED}[ERROR]${RC} $1"
+    printf "%b\n" "${RED}${BOLD}  ✗${RC} ${RED}$1${RC}"
+}
+
+success() {
+    printf "%b\n" "${GREEN}${BOLD}  ✓${RC} ${GREEN}$1${RC}"
+}
+
+step() {
+    printf "%b\n" "${CYAN}${BOLD}  ➤${RC} ${WHITE}$1${RC}"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                      PROGRESS BAR FUNCTION
+# ═══════════════════════════════════════════════════════════════
+
+progress_bar() {
+    current=$1
+    total=$2
+    width=${3:-40}
+    
+    percent=$((current * 100 / total))
+    filled=$((current * width / total))
+    empty=$((width - filled))
+    
+    # Build the bar
+    bar_filled=""
+    bar_empty=""
+    i=0
+    while [ $i -lt $filled ]; do
+        bar_filled="${bar_filled}█"
+        i=$((i + 1))
+    done
+    i=0
+    while [ $i -lt $empty ]; do
+        bar_empty="${bar_empty}░"
+        i=$((i + 1))
+    done
+    
+    printf "\r  ${CYAN}[${GRAD3}%s${DIM}%s${CYAN}]${RC} ${WHITE}${BOLD}%3d%%${RC} " "$bar_filled" "$bar_empty" "$percent"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                    SECTION HEADER FUNCTION
+# ═══════════════════════════════════════════════════════════════
+
+section() {
+    title="$1"
+    printf "\n"
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${PURPLE}" "${RC}"
+    printf "  %b│%b %b%-43s%b %b│%b\n" "${PURPLE}" "${RC}" "${BOLD}${WHITE}" "$title" "${RC}" "${PURPLE}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${PURPLE}" "${RC}"
+    printf "\n"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                     SPINNER FUNCTION
+# ═══════════════════════════════════════════════════════════════
+
+spinner() {
+    pid=$1
+    msg=$2
+    spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        i=$(( (i + 1) % 10 ))
+        char=$(echo "$spin" | cut -c$((i + 1)))
+        printf "\r  ${CYAN}[${char}]${RC} ${WHITE}%s${RC}" "$msg"
+        sleep 0.1
+    done
+    printf "\r  ${GREEN}${BOLD}[✓]${RC} ${WHITE}%s${RC}\n" "$msg"
+}
+
+# Spinner with custom end state
+spinner_fail() {
+    pid=$1
+    msg=$2
+    spin='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    i=0
+    while kill -0 "$pid" 2>/dev/null; do
+        i=$(( (i + 1) % 10 ))
+        char=$(echo "$spin" | cut -c$((i + 1)))
+        printf "\r  ${CYAN}[${char}]${RC} ${WHITE}%s${RC}" "$msg"
+        sleep 0.1
+    done
+    printf "\r  ${RED}${BOLD}[✗]${RC} ${RED}%s${RC}\n" "$msg"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                    DECORATIVE ELEMENTS
+# ═══════════════════════════════════════════════════════════════
+
+# Horizontal line
+draw_line() {
+    width=${1:-50}
+    char=${2:-─}
+    line=""
+    i=0
+    while [ $i -lt $width ]; do
+        line="${line}${char}"
+        i=$((i + 1))
+    done
+    printf "  %b%s%b\n" "${DIM}${CYAN}" "$line" "${RC}"
+}
+
+# Box drawing
+draw_box_top() {
+    width=${1:-50}
+    line=""
+    i=0
+    while [ $i -lt $((width - 2)) ]; do
+        line="${line}═"
+        i=$((i + 1))
+    done
+    printf "  %b╔%s╗%b\n" "${PURPLE}" "$line" "${RC}"
+}
+
+draw_box_bottom() {
+    width=${1:-50}
+    line=""
+    i=0
+    while [ $i -lt $((width - 2)) ]; do
+        line="${line}═"
+        i=$((i + 1))
+    done
+    printf "  %b╚%s╝%b\n" "${PURPLE}" "$line" "${RC}"
+}
+
+draw_box_mid() {
+    width=${1:-50}
+    line=""
+    i=0
+    while [ $i -lt $((width - 2)) ]; do
+        line="${line}═"
+        i=$((i + 1))
+    done
+    printf "  %b╠%s╣%b\n" "${PURPLE}" "$line" "${RC}"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                    PROMPT HELPERS
+# ═══════════════════════════════════════════════════════════════
+
+# Show default value in prompt
+prompt_with_default() {
+    prompt_text="$1"
+    default_val="$2"
+    printf "  %b%s%b %b[Default: %s]%b: " "${WHITE}" "$prompt_text" "${RC}" "${DIM}${CYAN}" "$default_val" "${RC}"
+}
+
+# Confirmation prompt
+confirm_action() {
+    msg="$1"
+    default="${2:-n}"
+    
+    if [ "$default" = "y" ]; then
+        prompt="[Y/n]"
+    else
+        prompt="[y/N]"
+    fi
+    
+    printf "  %b%s%b %b%s%b: " "${WHITE}" "$msg" "${RC}" "${DIM}" "$prompt" "${RC}"
 }
 
 # Check if running as root
