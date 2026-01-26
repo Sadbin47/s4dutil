@@ -38,13 +38,12 @@ if [ -n "$S4D_TARGET_DISK" ]; then
 fi
 
 # Sync time
-info "Synchronizing system clock..."
-timedatectl set-ntp true
-success "System clock synchronized"
+timedatectl set-ntp true 2>/dev/null || true
 
-# Update pacman keyring
-info "Updating pacman keyring..."
-pacman -Sy --noconfirm archlinux-keyring >/dev/null 2>&1 || true
-success "Pacman keyring updated"
+# Update pacman keyring (with timeout to prevent hanging)
+pacman -Sy --noconfirm archlinux-keyring >/dev/null 2>&1 &
+PACMAN_PID=$!
+sleep 30 && kill -0 $PACMAN_PID 2>/dev/null && kill $PACMAN_PID 2>/dev/null &
+wait $PACMAN_PID 2>/dev/null || true
 
 success "All environment checks passed!"

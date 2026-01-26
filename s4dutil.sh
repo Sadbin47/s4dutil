@@ -30,7 +30,7 @@ show_header() {
     printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b            %b*   Arch Linux Installer%b %bv1.0.0%b                     %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+    printf "  %b║%b            %b*   Arch Linux Installer %b %bv1.0.0%b                    %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
     printf "\n"
 }
@@ -787,17 +787,18 @@ run_installation() {
         step_name=$(echo "$step" | sed 's/[0-9]*-//;s/\.sh//;s/-/ /g')
         
         # Show progress bar
+        printf "\r"
         progress_bar "$current" "$total"
-        printf "%b%s%b" "${WHITE}" "$step_name" "${RC}"
+        printf " %b%s%b..." "${WHITE}" "$step_name" "${RC}"
         
-        if sh "$SCRIPTS_DIR/$step"; then
+        if sh "$SCRIPTS_DIR/$step" >/dev/null 2>&1; then
             printf "\r"
             progress_bar "$current" "$total"
-            printf "%b%s%b %b✓%b\n" "${WHITE}" "$step_name" "${RC}" "${GREEN}${BOLD}" "${RC}"
+            printf " %b%-25s%b %b✓%b\n" "${WHITE}" "$step_name" "${RC}" "${GREEN}${BOLD}" "${RC}"
         else
             printf "\r"
             progress_bar "$current" "$total"
-            printf "%b%s%b %b✗%b\n" "${WHITE}" "$step_name" "${RC}" "${RED}${BOLD}" "${RC}"
+            printf " %b%-25s%b %b✗%b\n" "${WHITE}" "$step_name" "${RC}" "${RED}${BOLD}" "${RC}"
             printf "\n"
             err "Installation failed at step: $step"
             printf "  %bCheck the error above and try again.%b\n" "${DIM}" "${RC}"
