@@ -82,34 +82,50 @@ select_disk() {
     
     printf "%b\n\n" "${BOLD}Available Disks:${RC}"
     
-    # List disks
+    # List disks and store in array-like format
+    DISK_LIST=$(lsblk -d -n -o NAME,SIZE | grep -E '^(sd|nvme|vd|hd)')
+    
+    if [ -z "$DISK_LIST" ]; then
+        printf "%b\n" "${RED}No disks found!${RC}"
+        sleep 2
+        return 1
+    fi
+    
     i=1
-    DISKS=""
-    while IFS= read -r line; do
+    echo "$DISK_LIST" | while IFS= read -r line; do
         name=$(echo "$line" | awk '{print $1}')
         size=$(echo "$line" | awk '{print $2}')
-        DISKS="$DISKS /dev/$name"
         printf "  %b) /dev/%s (%s)\n" "${CYAN}$i${RC}" "$name" "$size"
         i=$((i + 1))
-    done << EOF
-$(lsblk -d -n -o NAME,SIZE | grep -E '^(sd|nvme|vd|hd)')
-EOF
+    done
+    
+    disk_count=$(echo "$DISK_LIST" | wc -l)
     
     printf "\n"
     printf "  %b) Go Back\n" "${YELLOW}0${RC}"
     printf "\n"
     
-    printf "Select disk [1-%d]: " "$((i - 1))"
+    printf "Select disk [1-%d]: " "$disk_count"
     read -r choice
     
     if [ "$choice" = "0" ]; then
         return 1
     fi
     
-    # Get selected disk
-    TARGET_DISK=$(echo "$DISKS" | tr ' ' '\n' | sed -n "${choice}p")
+    # Validate choice is a number
+    if ! echo "$choice" | grep -qE '^[0-9]+$'; then
+        printf "%b\n" "${RED}Invalid selection!${RC}"
+        sleep 2
+        select_disk
+        return
+    fi
     
-    if [ -z "$TARGET_DISK" ] || [ ! -b "$TARGET_DISK" ]; then
+    # Get selected disk name from the list
+    selected_line=$(echo "$DISK_LIST" | sed -n "${choice}p")
+    disk_name=$(echo "$selected_line" | awk '{print $1}')
+    TARGET_DISK="/dev/$disk_name"
+    
+    if [ -z "$disk_name" ] || [ ! -b "$TARGET_DISK" ]; then
         printf "%b\n" "${RED}Invalid selection!${RC}"
         sleep 2
         select_disk
@@ -363,8 +379,7 @@ main_menu() {
         printf "%b\n" "${BOLD}Main Menu${RC}"
         printf "%b\n\n" "────────────────────────────────────────"
         printf "  %b) Start Installation\n" "${CYAN}1${RC}"
-        printf "  %b) View System Info\n" "${CYAN}2${RC}"
-        printf "  %b) Open Shell\n" "${CYAN}3${RC}"
+        printf "  %b) Open Shell\n" "${CYAN}2${RC}"
         printf "  %b) Exit\n" "${CYAN}0${RC}"
         printf "\n"
         printf "Select option: "
@@ -382,11 +397,6 @@ main_menu() {
                 fi
                 ;;
             2)
-                show_system_info
-                printf "\nPress Enter to continue..."
-                read -r _
-                ;;
-            3)
                 printf "\nType 'exit' to return to installer.\n\n"
                 /bin/sh
                 ;;
