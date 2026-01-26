@@ -19,8 +19,7 @@ if is_uefi; then
     # UEFI Mounting
     ###################
     EFI_PART=$(get_partition "$DISK" 1)
-    SWAP_PART=$(get_partition "$DISK" 2)
-    ROOT_PART=$(get_partition "$DISK" 3)
+    ROOT_PART=$(get_partition "$DISK" 2)
     
     # Mount root partition
     info "Mounting root partition ($ROOT_PART) to /mnt..."
@@ -33,27 +32,16 @@ if is_uefi; then
     mount "$EFI_PART" /mnt/boot/efi
     success "EFI partition mounted"
     
-    # Enable swap
-    info "Enabling swap ($SWAP_PART)..."
-    swapon "$SWAP_PART"
-    success "Swap enabled"
-    
 else
     ###################
     # BIOS Mounting
     ###################
-    SWAP_PART=$(get_partition "$DISK" 1)
-    ROOT_PART=$(get_partition "$DISK" 2)
+    ROOT_PART=$(get_partition "$DISK" 1)
     
     # Mount root partition
     info "Mounting root partition ($ROOT_PART) to /mnt..."
     mount "$ROOT_PART" /mnt
     success "Root partition mounted"
-    
-    # Enable swap
-    info "Enabling swap ($SWAP_PART)..."
-    swapon "$SWAP_PART"
-    success "Swap enabled"
 fi
 
 # Verify mounts

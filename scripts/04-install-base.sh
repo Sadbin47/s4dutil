@@ -9,20 +9,20 @@ check_internet
 
 info "Installing base system..."
 
-# Base packages
-BASE_PACKAGES="base linux linux-firmware"
+# Base packages (no kernel - we'll install Liquorix after)
+BASE_PACKAGES="base linux-firmware"
 
 # Essential packages
-ESSENTIAL_PACKAGES="base-devel sudo networkmanager vim nano"
+ESSENTIAL_PACKAGES="base-devel sudo networkmanager vim nano git curl wget xfsprogs"
 
 # Bootloader packages
 if [ "$S4D_BOOTLOADER" = "systemd-boot" ]; then
     BOOT_PACKAGES="efibootmgr"
 else
     if is_uefi; then
-        BOOT_PACKAGES="grub efibootmgr"
+        BOOT_PACKAGES="grub efibootmgr os-prober"
     else
-        BOOT_PACKAGES="grub"
+        BOOT_PACKAGES="grub os-prober"
     fi
 fi
 
@@ -58,5 +58,10 @@ fi
 # Run pacstrap
 info "Running pacstrap (this may take a while)..."
 pacstrap -K /mnt $ALL_PACKAGES
+
+# Install Liquorix Kernel
+info "Installing Liquorix Kernel..."
+arch_chroot "curl -s 'https://liquorix.net/install-liquorix.sh' | bash"
+success "Liquorix kernel installed"
 
 success "Base system installed successfully!"

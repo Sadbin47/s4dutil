@@ -74,4 +74,33 @@ info "Regenerating initramfs..."
 arch_chroot "mkinitcpio -P"
 success "Initramfs regenerated"
 
+###################
+# Swap File
+###################
+if [ "$S4D_SWAP_SIZE" -gt 0 ] 2>/dev/null; then
+    info "Creating ${S4D_SWAP_SIZE}GB swap file..."
+    
+    # Calculate size in bytes
+    SWAP_BYTES=$((S4D_SWAP_SIZE * 1024 * 1024 * 1024))
+    
+    # Create swap file using dd (XFS doesn't support fallocate for swap)
+    dd if=/dev/zero of=/mnt/swapfile bs=1M count=$((S4D_SWAP_SIZE * 1024)) status=progress
+    
+    # Set permissions
+    chmod 600 /mnt/swapfile
+    
+    # Format as swap
+    mkswap /mnt/swapfile
+    
+    # Add to fstab
+    echo "/swapfile none swap defaults 0 0" >> /mnt/etc/fstab
+    
+    # Set swappiness (lower = less aggressive swapping)
+    echo "vm.swappiness=10" > /mnt/etc/sysctl.d/99-swappiness.conf
+    
+    success "Swap file created and configured"
+else
+    info "Swap file disabled, skipping..."
+fi
+
 success "System configuration complete!"

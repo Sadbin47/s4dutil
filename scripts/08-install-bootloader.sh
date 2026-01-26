@@ -25,14 +25,14 @@ if [ "$BOOTLOADER" = "systemd-boot" ]; then
         
         # Create loader.conf
         cat > /mnt/boot/efi/loader/loader.conf << EOF
-default arch.conf
+default arch-lqx.conf
 timeout 3
 console-mode max
 editor no
 EOF
         
         # Get root partition UUID
-        ROOT_PART=$(get_partition "$DISK" 3)
+        ROOT_PART=$(get_partition "$DISK" 2)
         ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
         
         # Detect microcode
@@ -43,16 +43,16 @@ EOF
             INITRD_UCODE="initrd  /amd-ucode.img"
         fi
         
-        # Create arch.conf entry
-        cat > /mnt/boot/efi/loader/entries/arch.conf << EOF
-title   Arch Linux
-linux   /vmlinuz-linux
+        # Create arch-lqx.conf entry for Liquorix kernel
+        cat > /mnt/boot/efi/loader/entries/arch-lqx.conf << EOF
+title   Arch Linux (Liquorix)
+linux   /vmlinuz-linux-lqx
 $INITRD_UCODE
-initrd  /initramfs-linux.img
+initrd  /initramfs-linux-lqx.img
 options root=UUID=$ROOT_UUID rw
 EOF
         
-        success "systemd-boot installed"
+        success "systemd-boot installed with Liquorix kernel"
     fi
 fi
 

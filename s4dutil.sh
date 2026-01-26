@@ -282,9 +282,35 @@ setup_users() {
             ;;
     esac
     
+    # Swap file configuration
+    printf "\n%b\n" "${BOLD}Swap Configuration${RC}"
+    printf "Enable swap file? [Y/n]: "
+    read -r enable_swap
+    
+    case "$enable_swap" in
+        [Nn]*)
+            SWAP_SIZE=0
+            ;;
+        *)
+            # Get RAM size in GB for suggestion
+            RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
+            SUGGESTED_SWAP=$((RAM_GB > 0 ? RAM_GB : 4))
+            
+            printf "Enter swap file size in GB [%d]: " "$SUGGESTED_SWAP"
+            read -r swap_input
+            
+            if [ -n "$swap_input" ] && echo "$swap_input" | grep -qE '^[0-9]+$'; then
+                SWAP_SIZE="$swap_input"
+            else
+                SWAP_SIZE="$SUGGESTED_SWAP"
+            fi
+            ;;
+    esac
+    
     export S4D_ROOT_PASSWORD="$ROOT_PASSWORD"
     export S4D_USERNAME="$USERNAME"
     export S4D_USER_PASSWORD="$USER_PASSWORD"
+    export S4D_SWAP_SIZE="$SWAP_SIZE"
 }
 
 # Show summary
@@ -296,12 +322,19 @@ show_summary() {
     printf "  Target Disk:   %b\n" "${CYAN}$TARGET_DISK${RC}"
     printf "  Boot Mode:     %s\n" "$([ "$IS_UEFI" = "1" ] && echo "UEFI" || echo "BIOS")"
     printf "  Bootloader:    %s\n" "$BOOTLOADER"
+    printf "  Filesystem:    XFS\n"
+    printf "  Kernel:        Liquorix\n"
     printf "  ────────────────────────────────────\n"
     printf "  Hostname:      %s\n" "$HOSTNAME"
     printf "  Timezone:      %s\n" "$TIMEZONE"
     printf "  Locale:        %s\n" "$LOCALE"
     printf "  Keymap:        %s\n" "$KEYMAP"
     printf "  ────────────────────────────────────\n"
+    if [ "$S4D_SWAP_SIZE" -gt 0 ] 2>/dev/null; then
+        printf "  Swap File:     %s GB\n" "$S4D_SWAP_SIZE"
+    else
+        printf "  Swap File:     Disabled\n"
+    fi
     printf "  Root Password: ********\n"
     printf "  Username:      %s\n" "${USERNAME:-"(none)"}"
     printf "\n"
