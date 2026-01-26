@@ -41,7 +41,8 @@ check_environment() {
         exit 1
     fi
     
-    if ! ping -c 1 -W 3 archlinux.org >/dev/null 2>&1; then
+    # Use timeout to prevent ping from hanging
+    if ! timeout 3 ping -c 1 archlinux.org >/dev/null 2>&1; then
         printf "%b\n" "${RED}Error: No internet connection${RC}"
         exit 1
     fi

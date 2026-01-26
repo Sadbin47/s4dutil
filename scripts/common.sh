@@ -253,7 +253,7 @@ check_live_iso() {
 
 # Check internet connection
 check_internet() {
-    if ! ping -c 1 -W 3 archlinux.org >/dev/null 2>&1; then
+    if ! timeout 3 ping -c 1 archlinux.org >/dev/null 2>&1; then
         error "No internet connection"
         exit 1
     fi
