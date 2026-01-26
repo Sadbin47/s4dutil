@@ -10,13 +10,13 @@ body:
         Boot into Arch Linux Live ISO, then run:
         
         ```bash
-        curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/s4dutil/main/install.sh | sh
+        curl -fsSL https://raw.githubusercontent.com/Sadbin47/s4dutil/main/install.sh | sh
         ```
         
         Or download the binary directly:
         
         ```bash
-        curl -LO https://github.com/YOUR_USERNAME/s4dutil/releases/latest/download/s4dutil-linux-x86_64
+        curl -LO https://github.com/Sadbin47/s4dutil/releases/latest/download/s4dutil-linux-x86_64
         chmod +x s4dutil-linux-x86_64
         ./s4dutil-linux-x86_64
         ```

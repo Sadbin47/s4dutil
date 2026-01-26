@@ -9,13 +9,13 @@ A modern C++ TUI-based minimal Arch Linux installer.
 Boot into Arch Linux Live ISO, then run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/s4dutil/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Sadbin47/s4dutil/main/install.sh | sh
 ```
 
 Or clone and build manually:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/s4dutil.git
+git clone https://github.com/Sadbin47/s4dutil.git
 cd s4dutil
 ./build.sh
 ./build/s4dutil

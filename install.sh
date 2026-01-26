@@ -67,7 +67,7 @@ build_s4dutil() {
     rm -rf "$INSTALL_DIR"
     
     # Clone repository
-    git clone --depth 1 https://github.com/YOUR_USERNAME/s4dutil.git "$INSTALL_DIR"
+    git clone --depth 1 https://github.com/Sadbin47/s4dutil.git "$INSTALL_DIR"
     
     cd "$INSTALL_DIR"
     
@@ -89,7 +89,7 @@ run_installer() {
 
 # Check for pre-built binary first
 check_prebuilt() {
-    BINARY_URL="https://github.com/YOUR_USERNAME/s4dutil/releases/latest/download/s4dutil-linux-x86_64"
+    BINARY_URL="https://github.com/Sadbin47/s4dutil/releases/latest/download/s4dutil-linux-x86_64"
     
     printf "%b\n" "${YELLOW}Checking for pre-built binary...${RC}"
     
@@ -98,7 +98,7 @@ check_prebuilt() {
         printf "%b\n" "${GREEN}Downloaded pre-built binary!${RC}"
         
         # Download scripts
-        SCRIPTS_URL="https://github.com/YOUR_USERNAME/s4dutil/releases/latest/download/scripts.tar.gz"
+        SCRIPTS_URL="https://github.com/Sadbin47/s4dutil/releases/latest/download/scripts.tar.gz"
         mkdir -p /tmp/s4dutil_scripts
         if curl -fsSL "$SCRIPTS_URL" 2>/dev/null | tar -xz -C /tmp/s4dutil_scripts; then
             printf "%b\n" "${CYAN}Starting S4DUtil Installer...${RC}\n"

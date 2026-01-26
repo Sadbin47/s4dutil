@@ -39,7 +39,7 @@ Thank you for your interest in contributing to S4DUtil!
 ### Building
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/s4dutil.git
+git clone https://github.com/Sadbin47/s4dutil.git
 cd s4dutil
 ./build.sh
 ```
