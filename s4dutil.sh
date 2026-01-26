@@ -282,32 +282,41 @@ configure_system() {
     
     # Bootloader selection
     printf "\n"
-    printf "    %b󰋊%b  %bBootloader%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}"
+    printf "    %b󰋊%b  %bBootloader Selection%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}"
     printf "\n"
+    printf "      %b1%b) %bGRUB%b              %b(feature-rich, dual-boot support)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     
     if [ "$IS_UEFI" = "1" ]; then
-        # UEFI mode - both options available
-        printf "      %b1%b) %bGRUB%b              %b(feature-rich, recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-        printf "      %b2%b) %bsystemd-boot%b      %b(minimal, fast, modern)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-        printf "\n       %b➜%b " "${CYAN}" "${RC}"
-        read -r boot_choice
-        case "$boot_choice" in
-            2) 
+        # UEFI mode - both options fully available
+        printf "      %b2%b) %bsystemd-boot%b      %b(minimal, fast, modern - UEFI only)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    else
+        # BIOS mode - show systemd-boot as unavailable
+        printf "      %b2%b) %bsystemd-boot%b      %b(requires UEFI - not available)%b\n" "${DIM}" "${RC}" "${DIM}" "${RC}" "${RED}${DIM}" "${RC}"
+    fi
+    
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r boot_choice
+    
+    case "$boot_choice" in
+        2)
+            if [ "$IS_UEFI" = "1" ]; then
                 BOOTLOADER="systemd-boot"
                 ok "Bootloader: systemd-boot"
-                ;;
-            *) 
+            else
+                warn "systemd-boot requires UEFI! Defaulting to GRUB."
                 BOOTLOADER="grub"
-                ok "Bootloader: GRUB"
-                ;;
-        esac
-    else
-        # BIOS mode - only GRUB available
-        printf "      %b󰋊%b  %bBIOS mode detected - using GRUB%b\n" "${YELLOW}" "${RC}" "${WHITE}" "${RC}"
-        printf "      %b(systemd-boot requires UEFI)%b\n" "${DIM}" "${RC}"
-        BOOTLOADER="grub"
-        ok "Bootloader: GRUB (BIOS)"
-    fi
+                ok "Bootloader: GRUB (BIOS mode)"
+            fi
+            ;;
+        *)
+            BOOTLOADER="grub"
+            if [ "$IS_UEFI" = "1" ]; then
+                ok "Bootloader: GRUB (UEFI)"
+            else
+                ok "Bootloader: GRUB (BIOS)"
+            fi
+            ;;
+    esac
     
     # Export variables
     export S4D_HOSTNAME="$HOSTNAME"
