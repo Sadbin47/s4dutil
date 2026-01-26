@@ -1,8 +1,6 @@
 # S4DUtil - Arch Linux Installer
 
-A modern C++ TUI-based minimal Arch Linux installer.
-
-![Preview](assets/preview.png)
+A lightweight, interactive Arch Linux installer. No compilation needed - works directly on Live ISO!
 
 ## 🚀 Quick Start
 
@@ -12,21 +10,21 @@ Boot into Arch Linux Live ISO, then run:
 curl -fsSL https://raw.githubusercontent.com/Sadbin47/s4dutil/main/install.sh | sh
 ```
 
-Or clone and build manually:
+Or clone manually:
 
 ```bash
 git clone https://github.com/Sadbin47/s4dutil.git
 cd s4dutil
-./build.sh
-./build/s4dutil
+./s4dutil.sh
 ```
 
 ## ✨ Features
 
-- **Interactive TUI** - Modern terminal interface powered by FTXUI
-- **Step-by-step installation** - Guided Arch Linux installation
-- **Disk partitioning** - Support for UEFI and BIOS systems
-- **Minimal installation** - Clean, minimal Arch base system
+- **Zero Dependencies** - Pure shell scripts, no compilation required
+- **Lightweight** - Works on Live ISO with limited space
+- **Interactive Menu** - Guided step-by-step installation
+- **Disk Partitioning** - Full UEFI and BIOS support
+- **Minimal Installation** - Clean, minimal Arch base system
 - **Safe** - Confirmation prompts before destructive operations
 
 ## 📋 Installation Steps
@@ -45,43 +43,25 @@ cd s4dutil
 
 ### Requirements
 
-- CMake 3.14+
-- C++17 compatible compiler (GCC 8+, Clang 7+)
-- Git
-
-### Build
-
-```bash
-mkdir build && cd build
-cmake ..
-make -j$(nproc)
-```
-
-### Install System-wide
-
-```bash
-sudo make install
-```
-
 ## 📁 Project Structure
 
 ```
 s4dutil/
-├── CMakeLists.txt          # Build configuration
-├── install.sh              # One-liner installer
-├── build.sh                # Build script
-├── src/                    # C++ source files
-│   ├── main.cpp            # Entry point
-│   ├── app.cpp/hpp         # Application state
-│   ├── menu.cpp/hpp        # Menu system
-│   ├── executor.cpp/hpp    # Script execution
-│   ├── installer.cpp/hpp   # Installation logic
-│   └── utils.cpp/hpp       # Utility functions
-├── scripts/                # Shell scripts for installation
+├── install.sh              # One-liner installer (curl | sh)
+├── s4dutil.sh              # Main interactive menu
+├── scripts/                # Installation step scripts
 │   ├── common.sh           # Shared functions
-│   └── *.sh                # Individual step scripts
-└── config/
-    └── menu.toml           # Menu configuration
+│   ├── 00-check-environment.sh
+│   ├── 01-partition-disk.sh
+│   ├── 02-format-partitions.sh
+│   ├── 03-mount-partitions.sh
+│   ├── 04-install-base.sh
+│   ├── 05-generate-fstab.sh
+│   ├── 06-configure-system.sh
+│   ├── 07-setup-users.sh
+│   ├── 08-install-bootloader.sh
+│   └── 09-finalize.sh
+└── src/                    # Optional C++ TUI (for development)
 ```
 
 ## 📜 License
