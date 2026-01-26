@@ -406,6 +406,10 @@ main() {
         exit 1
     fi
     
+    # Ensure we have a proper TTY for user input
+    # This is needed when running via curl | sh
+    exec < /dev/tty
+    
     main_menu
 }
 

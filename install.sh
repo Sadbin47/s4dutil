@@ -82,7 +82,8 @@ download_scripts() {
 # Run the main installer
 run_installer() {
     cd "$INSTALL_DIR"
-    exec sh ./s4dutil.sh
+    # Use exec with proper TTY to allow user input
+    exec sh ./s4dutil.sh < /dev/tty
 }
 
 main() {
