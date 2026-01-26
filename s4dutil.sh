@@ -187,6 +187,13 @@ select_disk() {
 configure_system() {
     show_header
     
+    # Detect UEFI mode
+    if [ -d /sys/firmware/efi ]; then
+        IS_UEFI=1
+    else
+        IS_UEFI=0
+    fi
+    
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
     printf "  %b│%b %b󰒓  System Configuration%b                     %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
@@ -273,21 +280,33 @@ configure_system() {
         *) KEYMAP="us" ;;
     esac
     
-    # Bootloader
+    # Bootloader selection
+    printf "\n"
+    printf "    %b󰋊%b  %bBootloader%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}"
+    printf "\n"
+    
     if [ "$IS_UEFI" = "1" ]; then
-        printf "\n"
-        printf "    %b󰋊%b  %bBootloader%b %b[Default: GRUB]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
-        printf "\n"
-        printf "      %b1%b) %bGRUB%b              %b(recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-        printf "      %b2%b) %bsystemd-boot%b      %b(minimal)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+        # UEFI mode - both options available
+        printf "      %b1%b) %bGRUB%b              %b(feature-rich, recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+        printf "      %b2%b) %bsystemd-boot%b      %b(minimal, fast, modern)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
         printf "\n       %b➜%b " "${CYAN}" "${RC}"
         read -r boot_choice
         case "$boot_choice" in
-            2) BOOTLOADER="systemd-boot" ;;
-            *) BOOTLOADER="grub" ;;
+            2) 
+                BOOTLOADER="systemd-boot"
+                ok "Bootloader: systemd-boot"
+                ;;
+            *) 
+                BOOTLOADER="grub"
+                ok "Bootloader: GRUB"
+                ;;
         esac
     else
+        # BIOS mode - only GRUB available
+        printf "      %b󰋊%b  %bBIOS mode detected - using GRUB%b\n" "${YELLOW}" "${RC}" "${WHITE}" "${RC}"
+        printf "      %b(systemd-boot requires UEFI)%b\n" "${DIM}" "${RC}"
         BOOTLOADER="grub"
+        ok "Bootloader: GRUB (BIOS)"
     fi
     
     # Export variables
