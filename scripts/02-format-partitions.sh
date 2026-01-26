@@ -8,8 +8,26 @@ check_root
 validate_env
 
 DISK="$S4D_TARGET_DISK"
+FS="${S4D_FILESYSTEM:-ext4}"
 
 info "Formatting partitions on $DISK..."
+
+# Format root partition based on selected filesystem
+format_root() {
+    part="$1"
+    case "$FS" in
+        xfs)
+            info "Formatting root partition ($part) as XFS..."
+            mkfs.xfs -f -L "root" "$part"
+            success "Root partition formatted (XFS)"
+            ;;
+        *)
+            info "Formatting root partition ($part) as ext4..."
+            mkfs.ext4 -F -L "root" "$part"
+            success "Root partition formatted (ext4)"
+            ;;
+    esac
+}
 
 if is_uefi; then
     ###################
@@ -23,10 +41,8 @@ if is_uefi; then
     mkfs.fat -F 32 -n "EFI" "$EFI_PART"
     success "EFI partition formatted"
     
-    # Format root partition as XFS
-    info "Formatting root partition ($ROOT_PART) as XFS..."
-    mkfs.xfs -f -L "root" "$ROOT_PART"
-    success "Root partition formatted (XFS)"
+    # Format root partition
+    format_root "$ROOT_PART"
     
 else
     ###################
@@ -34,10 +50,8 @@ else
     ###################
     ROOT_PART=$(get_partition "$DISK" 1)
     
-    # Format root partition as XFS
-    info "Formatting root partition ($ROOT_PART) as XFS..."
-    mkfs.xfs -f -L "root" "$ROOT_PART"
-    success "Root partition formatted (XFS)"
+    # Format root partition
+    format_root "$ROOT_PART"
 fi
 
 success "All partitions formatted successfully!"

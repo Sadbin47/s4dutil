@@ -18,6 +18,7 @@ ROOT_PASSWORD=""
 USERNAME=""
 USER_PASSWORD=""
 BOOTLOADER="grub"
+FILESYSTEM="ext4"
 
 # Display header with gradient effect
 show_header() {
@@ -82,12 +83,12 @@ select_disk() {
     show_header
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
-    printf "  %b│%b %b⚠  WARNING: ALL DATA WILL BE ERASED!%b       %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}${BLINK}" "${RC}" "${RED}" "${RC}"
+    printf "  %b│%b  %b⚠  WARNING: ALL DATA WILL BE ERASED!%b      %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}${BLINK}" "${RC}" "${RED}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${RED}" "${RC}"
     printf "\n"
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰋊  Available Disks%b                          %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b  %b󰋊  Available Disks%b                         %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
@@ -146,7 +147,7 @@ select_disk() {
     # Confirm
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
-    printf "  %b│%b  %bALL DATA ON %s WILL BE LOST!%b    %b│%b\n" "${RED}" "${RC}" "${BOLD}${WHITE}" "$TARGET_DISK" "${RC}" "${RED}" "${RC}"
+    printf "  %b│%b  %bALL DATA ON %-12s WILL BE LOST!%b  %b│%b\n" "${RED}" "${RC}" "${BOLD}${WHITE}" "$TARGET_DISK" "${RC}" "${RED}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${RED}" "${RC}"
     printf "\n  %bAre you sure?%b %b[y/N]%b: " "${WHITE}" "${RC}" "${DIM}" "${RC}"
     read -r confirm
@@ -289,12 +290,26 @@ configure_system() {
         BOOTLOADER="grub"
     fi
     
+    # Filesystem selection
+    printf "\n"
+    printf "    %b󰉋%b  %bFilesystem%b %b[Default: ext4]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
+    printf "\n"
+    printf "      %b1%b) %bext4%b            %b(stable, recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %bxfs%b             %b(high performance)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r fs_choice
+    case "$fs_choice" in
+        2) FILESYSTEM="xfs" ;;
+        *) FILESYSTEM="ext4" ;;
+    esac
+    
     # Export variables
     export S4D_HOSTNAME="$HOSTNAME"
     export S4D_TIMEZONE="$TIMEZONE"
     export S4D_LOCALE="$LOCALE"
     export S4D_KEYMAP="$KEYMAP"
     export S4D_BOOTLOADER="$BOOTLOADER"
+    export S4D_FILESYSTEM="$FILESYSTEM"
     export S4D_IS_UEFI="$IS_UEFI"
     
     printf "\n"
@@ -718,7 +733,7 @@ show_summary() {
     printf "    %b󰋊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Target Disk" "${CYAN}${BOLD}" "$TARGET_DISK" "${RC}"
     printf "    %b󰍛%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Boot Mode" "${WHITE}" "$([ "$IS_UEFI" = "1" ] && echo "UEFI" || echo "BIOS")" "${RC}"
     printf "    %b󰋊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Bootloader" "${WHITE}" "$BOOTLOADER" "${RC}"
-    printf "    %b󰉋%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Filesystem" "${WHITE}" "XFS" "${RC}"
+    printf "    %b󰉋%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Filesystem" "${WHITE}" "$FILESYSTEM" "${RC}"
     printf "    %b󰌽%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Kernel" "${YELLOW}${BOLD}" "Liquorix" "${RC}"
     printf "\n"
     draw_line 47
@@ -818,7 +833,7 @@ run_installation() {
     printf "  %b║%b    %b󰇄  Hostname:%b      %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "$HOSTNAME" "${RC}" "${GREEN}" "${RC}"
     printf "  %b║%b    %b󰌽  Kernel:%b        %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${YELLOW}${BOLD}" "Liquorix" "${RC}" "${GREEN}" "${RC}"
     printf "  %b║%b    %b󰋊  Bootloader:%b    %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}" "$BOOTLOADER" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b    %b󰉋  Filesystem:%b    %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}" "XFS" "${RC}" "${GREEN}" "${RC}"
+    printf "  %b║%b    %b󰉋  Filesystem:%b    %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}" "$FILESYSTEM" "${RC}" "${GREEN}" "${RC}"
     printf "  %b║%b                                                   %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
     printf "  %b╚═══════════════════════════════════════════════════╝%b\n" "${GREEN}" "${RC}"
     printf "\n"
