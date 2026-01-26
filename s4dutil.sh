@@ -30,7 +30,7 @@ show_header() {
     printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b           %b✨ Arch Linux Installer%b %bv1.0.0%b                    %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+    printf "  %b║%b            %b* Arch Linux Installer%b %bv1.0.0%b                     %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
     printf "\n"
 }
@@ -39,9 +39,9 @@ show_header() {
 show_system_info() {
     show_header
     
-    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b⚙  System Information%b                       %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
-    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "  %b╭───────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b  %bSystem Information%b                       %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰───────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
     # Boot mode
@@ -177,50 +177,100 @@ configure_system() {
     read -r input
     [ -n "$input" ] && HOSTNAME="$input"
     
-    # Timezone selection
+    # Timezone - try to auto-detect first
     printf "\n"
-    printf "    %b󰥔%b  %bTimezone%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$TIMEZONE" "${RC}"
-    printf "\n"
-    printf "      %b1%b) %bUTC%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b2%b) %bAmerica/New_York%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b3%b) %bAmerica/Los_Angeles%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b4%b) %bEurope/London%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b5%b) %bEurope/Berlin%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b6%b) %bAsia/Tokyo%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b7%b) %bAsia/Shanghai%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b8%b) %bAsia/Kolkata%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b9%b) %bCustom...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
-    printf "\n       %b➜%b " "${CYAN}" "${RC}"
-    read -r tz_choice
+    DETECTED_TZ=""
+    if [ -f /etc/localtime ] && command -v readlink >/dev/null 2>&1; then
+        DETECTED_TZ=$(readlink /etc/localtime 2>/dev/null | sed 's|.*/zoneinfo/||')
+    fi
+    if [ -z "$DETECTED_TZ" ] && [ -f /etc/timezone ]; then
+        DETECTED_TZ=$(cat /etc/timezone 2>/dev/null)
+    fi
     
-    case "$tz_choice" in
-        2) TIMEZONE="America/New_York" ;;
-        3) TIMEZONE="America/Los_Angeles" ;;
-        4) TIMEZONE="Europe/London" ;;
-        5) TIMEZONE="Europe/Berlin" ;;
-        6) TIMEZONE="Asia/Tokyo" ;;
-        7) TIMEZONE="Asia/Shanghai" ;;
-        8) TIMEZONE="Asia/Kolkata" ;;
-        9) 
-            printf "       %bEnter timezone (e.g., America/New_York):%b " "${WHITE}" "${RC}"
-            read -r TIMEZONE
-            ;;
-        *) TIMEZONE="UTC" ;;
-    esac
+    if [ -n "$DETECTED_TZ" ]; then
+        printf "    %b󰥔%b  %bSystem detected your timezone to be '%s'%b\n" "${PURPLE}" "${RC}" "${WHITE}" "$DETECTED_TZ" "${RC}"
+        printf "       %bIs this correct?%b %b[Y/n]%b: " "${WHITE}" "${RC}" "${DIM}" "${RC}"
+        read -r tz_confirm
+        case "$tz_confirm" in
+            [Nn]*)
+                # Show timezone selection
+                select_timezone
+                ;;
+            *)
+                TIMEZONE="$DETECTED_TZ"
+                ok "Timezone set to: $TIMEZONE"
+                ;;
+        esac
+    else
+        printf "    %b󰥔%b  %bTimezone%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$TIMEZONE" "${RC}"
+        select_timezone
+    fi
     
-    # Locale
+    # Locale selection
     printf "\n"
     printf "    %b󰗊%b  %bLocale%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$LOCALE" "${RC}"
-    printf "       %b➜%b " "${CYAN}" "${RC}"
-    read -r input
-    [ -n "$input" ] && LOCALE="$input"
+    printf "\n"
+    printf "      %b1%b) %ben_US.UTF-8%b       %b(English - US)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %ben_GB.UTF-8%b       %b(English - UK)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b3%b) %bde_DE.UTF-8%b       %b(German)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b4%b) %bfr_FR.UTF-8%b       %b(French)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b5%b) %bes_ES.UTF-8%b       %b(Spanish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b6%b) %bpt_BR.UTF-8%b       %b(Portuguese - Brazil)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b7%b) %bru_RU.UTF-8%b       %b(Russian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b8%b) %bzh_CN.UTF-8%b       %b(Chinese - Simplified)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b9%b) %bja_JP.UTF-8%b       %b(Japanese)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b10%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r locale_choice
     
-    # Keymap
+    case "$locale_choice" in
+        1) LOCALE="en_US.UTF-8" ;;
+        2) LOCALE="en_GB.UTF-8" ;;
+        3) LOCALE="de_DE.UTF-8" ;;
+        4) LOCALE="fr_FR.UTF-8" ;;
+        5) LOCALE="es_ES.UTF-8" ;;
+        6) LOCALE="pt_BR.UTF-8" ;;
+        7) LOCALE="ru_RU.UTF-8" ;;
+        8) LOCALE="zh_CN.UTF-8" ;;
+        9) LOCALE="ja_JP.UTF-8" ;;
+        10) 
+            select_locale
+            ;;
+        *) LOCALE="en_US.UTF-8" ;;
+    esac
+    
+    # Keyboard layout selection
     printf "\n"
     printf "    %b󰌌%b  %bKeyboard Layout%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$KEYMAP" "${RC}"
-    printf "       %b➜%b " "${CYAN}" "${RC}"
-    read -r input
-    [ -n "$input" ] && KEYMAP="$input"
+    printf "\n"
+    printf "      %b1%b) %bus%b      %b(US English)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %buk%b      %b(UK English)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b3%b) %bde%b      %b(German)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b4%b) %bfr%b      %b(French)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b5%b) %bes%b      %b(Spanish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b6%b) %bit%b      %b(Italian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b7%b) %bru%b      %b(Russian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b8%b) %bpl%b      %b(Polish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b9%b) %bbr%b      %b(Portuguese - Brazil)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b10%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r keymap_choice
+    
+    case "$keymap_choice" in
+        1) KEYMAP="us" ;;
+        2) KEYMAP="uk" ;;
+        3) KEYMAP="de" ;;
+        4) KEYMAP="fr" ;;
+        5) KEYMAP="es" ;;
+        6) KEYMAP="it" ;;
+        7) KEYMAP="ru" ;;
+        8) KEYMAP="pl" ;;
+        9) KEYMAP="br" ;;
+        10) 
+            select_keymap
+            ;;
+        *) KEYMAP="us" ;;
+    esac
     
     # Bootloader
     if [ "$IS_UEFI" = "1" ]; then
@@ -250,6 +300,292 @@ configure_system() {
     printf "\n"
     ok "Configuration saved!"
     sleep 1
+}
+
+# Select timezone from list
+select_timezone() {
+    printf "\n"
+    printf "      %b1%b) %bUTC%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b2%b) %bAmerica/New_York%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b3%b) %bAmerica/Los_Angeles%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b4%b) %bAmerica/Chicago%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b5%b) %bEurope/London%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b6%b) %bEurope/Berlin%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b7%b) %bEurope/Paris%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b8%b) %bAsia/Tokyo%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b9%b) %bAsia/Shanghai%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b10%b) %bAsia/Dhaka%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b11%b) %bAsia/Kolkata%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b12%b) %bAustralia/Sydney%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b13%b) %bEnter custom...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r tz_choice
+    
+    case "$tz_choice" in
+        1) TIMEZONE="UTC" ;;
+        2) TIMEZONE="America/New_York" ;;
+        3) TIMEZONE="America/Los_Angeles" ;;
+        4) TIMEZONE="America/Chicago" ;;
+        5) TIMEZONE="Europe/London" ;;
+        6) TIMEZONE="Europe/Berlin" ;;
+        7) TIMEZONE="Europe/Paris" ;;
+        8) TIMEZONE="Asia/Tokyo" ;;
+        9) TIMEZONE="Asia/Shanghai" ;;
+        10) TIMEZONE="Asia/Dhaka" ;;
+        11) TIMEZONE="Asia/Kolkata" ;;
+        12) TIMEZONE="Australia/Sydney" ;;
+        13) 
+            printf "       %bEnter timezone (e.g., Europe/London):%b " "${WHITE}" "${RC}"
+            read -r TIMEZONE
+            ;;
+        *) TIMEZONE="UTC" ;;
+    esac
+    ok "Timezone set to: $TIMEZONE"
+}
+
+# Select locale from all available
+select_locale() {
+    printf "\n"
+    printf "       %bAvailable locales:%b\n" "${WHITE}${BOLD}" "${RC}"
+    printf "\n"
+    
+    # Common locales list
+    LOCALES="aa_DJ.UTF-8
+aa_ER.UTF-8
+aa_ET.UTF-8
+af_ZA.UTF-8
+am_ET.UTF-8
+an_ES.UTF-8
+ar_AE.UTF-8
+ar_BH.UTF-8
+ar_DZ.UTF-8
+ar_EG.UTF-8
+ar_IQ.UTF-8
+ar_JO.UTF-8
+ar_KW.UTF-8
+ar_LB.UTF-8
+ar_LY.UTF-8
+ar_MA.UTF-8
+ar_OM.UTF-8
+ar_QA.UTF-8
+ar_SA.UTF-8
+ar_SD.UTF-8
+ar_SY.UTF-8
+ar_TN.UTF-8
+ar_YE.UTF-8
+az_AZ.UTF-8
+be_BY.UTF-8
+bg_BG.UTF-8
+bn_BD.UTF-8
+bn_IN.UTF-8
+bs_BA.UTF-8
+ca_ES.UTF-8
+cs_CZ.UTF-8
+cy_GB.UTF-8
+da_DK.UTF-8
+de_AT.UTF-8
+de_BE.UTF-8
+de_CH.UTF-8
+de_DE.UTF-8
+de_LU.UTF-8
+el_GR.UTF-8
+en_AU.UTF-8
+en_BW.UTF-8
+en_CA.UTF-8
+en_DK.UTF-8
+en_GB.UTF-8
+en_HK.UTF-8
+en_IE.UTF-8
+en_IN.UTF-8
+en_NZ.UTF-8
+en_PH.UTF-8
+en_SG.UTF-8
+en_US.UTF-8
+en_ZA.UTF-8
+en_ZW.UTF-8
+es_AR.UTF-8
+es_BO.UTF-8
+es_CL.UTF-8
+es_CO.UTF-8
+es_CR.UTF-8
+es_DO.UTF-8
+es_EC.UTF-8
+es_ES.UTF-8
+es_GT.UTF-8
+es_HN.UTF-8
+es_MX.UTF-8
+es_NI.UTF-8
+es_PA.UTF-8
+es_PE.UTF-8
+es_PR.UTF-8
+es_PY.UTF-8
+es_SV.UTF-8
+es_US.UTF-8
+es_UY.UTF-8
+es_VE.UTF-8
+et_EE.UTF-8
+eu_ES.UTF-8
+fa_IR.UTF-8
+fi_FI.UTF-8
+fr_BE.UTF-8
+fr_CA.UTF-8
+fr_CH.UTF-8
+fr_FR.UTF-8
+fr_LU.UTF-8
+ga_IE.UTF-8
+gl_ES.UTF-8
+gu_IN.UTF-8
+he_IL.UTF-8
+hi_IN.UTF-8
+hr_HR.UTF-8
+hu_HU.UTF-8
+hy_AM.UTF-8
+id_ID.UTF-8
+is_IS.UTF-8
+it_CH.UTF-8
+it_IT.UTF-8
+ja_JP.UTF-8
+ka_GE.UTF-8
+kk_KZ.UTF-8
+km_KH.UTF-8
+kn_IN.UTF-8
+ko_KR.UTF-8
+lt_LT.UTF-8
+lv_LV.UTF-8
+mk_MK.UTF-8
+ml_IN.UTF-8
+mn_MN.UTF-8
+mr_IN.UTF-8
+ms_MY.UTF-8
+mt_MT.UTF-8
+nb_NO.UTF-8
+ne_NP.UTF-8
+nl_BE.UTF-8
+nl_NL.UTF-8
+nn_NO.UTF-8
+pa_IN.UTF-8
+pl_PL.UTF-8
+pt_BR.UTF-8
+pt_PT.UTF-8
+ro_RO.UTF-8
+ru_RU.UTF-8
+ru_UA.UTF-8
+si_LK.UTF-8
+sk_SK.UTF-8
+sl_SI.UTF-8
+sq_AL.UTF-8
+sr_RS.UTF-8
+sv_FI.UTF-8
+sv_SE.UTF-8
+ta_IN.UTF-8
+te_IN.UTF-8
+th_TH.UTF-8
+tr_TR.UTF-8
+uk_UA.UTF-8
+ur_PK.UTF-8
+vi_VN.UTF-8
+zh_CN.UTF-8
+zh_HK.UTF-8
+zh_SG.UTF-8
+zh_TW.UTF-8"
+
+    # Display locales in columns
+    i=1
+    echo "$LOCALES" | while IFS= read -r loc; do
+        printf "      %b%2d%b) %b%-20s%b" "${CYAN}${BOLD}" "$i" "${RC}" "${WHITE}" "$loc" "${RC}"
+        if [ $((i % 3)) -eq 0 ]; then
+            printf "\n"
+        fi
+        i=$((i + 1))
+    done
+    printf "\n\n       %b➜%b Enter number or locale name: " "${CYAN}" "${RC}"
+    read -r loc_input
+    
+    # Check if input is a number
+    if echo "$loc_input" | grep -qE '^[0-9]+$'; then
+        LOCALE=$(echo "$LOCALES" | sed -n "${loc_input}p")
+        [ -z "$LOCALE" ] && LOCALE="en_US.UTF-8"
+    else
+        # Assume it's a locale name
+        if echo "$LOCALES" | grep -q "^${loc_input}$"; then
+            LOCALE="$loc_input"
+        elif echo "$LOCALES" | grep -q "^${loc_input}"; then
+            LOCALE=$(echo "$LOCALES" | grep "^${loc_input}" | head -1)
+        else
+            LOCALE="en_US.UTF-8"
+        fi
+    fi
+    ok "Locale set to: $LOCALE"
+}
+
+# Select keymap from all available
+select_keymap() {
+    printf "\n"
+    printf "       %bAvailable keyboard layouts:%b\n" "${WHITE}${BOLD}" "${RC}"
+    printf "\n"
+    
+    KEYMAPS="us
+uk
+by
+ca
+cf
+cz
+de
+de-latin1
+dk
+dvorak
+es
+et
+fa
+fi
+fr
+gr
+hu
+il
+it
+jp106
+la-latin1
+lt
+lv
+mk
+nl
+no
+pl
+pt-latin1
+ro
+ru
+se
+sg
+sk
+tr
+ua
+us-acentos"
+
+    # Display keymaps in columns
+    i=1
+    echo "$KEYMAPS" | while IFS= read -r km; do
+        printf "      %b%2d%b) %b%-15s%b" "${CYAN}${BOLD}" "$i" "${RC}" "${WHITE}" "$km" "${RC}"
+        if [ $((i % 4)) -eq 0 ]; then
+            printf "\n"
+        fi
+        i=$((i + 1))
+    done
+    printf "\n\n       %b➜%b Enter number or keymap name: " "${CYAN}" "${RC}"
+    read -r km_input
+    
+    # Check if input is a number
+    if echo "$km_input" | grep -qE '^[0-9]+$'; then
+        KEYMAP=$(echo "$KEYMAPS" | sed -n "${km_input}p")
+        [ -z "$KEYMAP" ] && KEYMAP="us"
+    else
+        # Assume it's a keymap name
+        if echo "$KEYMAPS" | grep -q "^${km_input}$"; then
+            KEYMAP="$km_input"
+        else
+            KEYMAP="us"
+        fi
+    fi
+    ok "Keyboard layout set to: $KEYMAP"
 }
 
 # Setup users
@@ -373,30 +709,38 @@ setup_users() {
 show_summary() {
     show_header
     
-    printf "  %b╔═════════════════════════════════════════════════╗%b\n" "${GREEN}" "${RC}"
-    printf "  %b║%b      %b📋  Installation Summary%b                   %b║%b\n" "${GREEN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b╠═════════════════════════════════════════════════╣%b\n" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                 %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰋊  Target Disk%b     %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${CYAN}${BOLD}" "$TARGET_DISK" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰍛  Boot Mode%b       %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$([ "$IS_UEFI" = "1" ] && echo "UEFI" || echo "BIOS")" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰋊  Bootloader%b      %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$BOOTLOADER" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰉋  Filesystem%b      %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "XFS" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰌽  Kernel%b          %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${YELLOW}${BOLD}" "Liquorix" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b────────────────────────────────────────%b   %b║%b\n" "${GREEN}" "${RC}" "${DIM}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰇄  Hostname%b        %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$HOSTNAME" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰥔  Timezone%b        %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$TIMEZONE" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰗊  Locale%b          %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$LOCALE" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰌌  Keymap%b          %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "$KEYMAP" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b────────────────────────────────────────%b   %b║%b\n" "${GREEN}" "${RC}" "${DIM}" "${RC}" "${GREEN}" "${RC}"
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b  %bInstallation Summary%b                       %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "\n"
+    
+    # System section
+    printf "    %b󰋊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Target Disk" "${CYAN}${BOLD}" "$TARGET_DISK" "${RC}"
+    printf "    %b󰍛%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Boot Mode" "${WHITE}" "$([ "$IS_UEFI" = "1" ] && echo "UEFI" || echo "BIOS")" "${RC}"
+    printf "    %b󰋊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Bootloader" "${WHITE}" "$BOOTLOADER" "${RC}"
+    printf "    %b󰉋%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Filesystem" "${WHITE}" "XFS" "${RC}"
+    printf "    %b󰌽%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Kernel" "${YELLOW}${BOLD}" "Liquorix" "${RC}"
+    printf "\n"
+    draw_line 47
+    printf "\n"
+    
+    # Configuration section
+    printf "    %b󰇄%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Hostname" "${WHITE}" "$HOSTNAME" "${RC}"
+    printf "    %b󰥔%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Timezone" "${WHITE}" "$TIMEZONE" "${RC}"
+    printf "    %b󰗊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Locale" "${WHITE}" "$LOCALE" "${RC}"
+    printf "    %b󰌌%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Keymap" "${WHITE}" "$KEYMAP" "${RC}"
+    printf "\n"
+    draw_line 47
+    printf "\n"
+    
+    # User section
     if [ "$S4D_SWAP_SIZE" -gt 0 ] 2>/dev/null; then
-        printf "  %b║%b  %b󰾴  Swap File%b       %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "${S4D_SWAP_SIZE} GB" "${RC}" "${GREEN}" "${RC}"
+        printf "    %b󰾴%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Swap File" "${WHITE}" "${S4D_SWAP_SIZE} GB" "${RC}"
     else
-        printf "  %b║%b  %b󰾴  Swap File%b       %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${DIM}" "Disabled" "${RC}" "${GREEN}" "${RC}"
+        printf "    %b󰾴%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Swap File" "${DIM}" "Disabled" "${RC}"
     fi
-    printf "  %b║%b  %b󰌋  Root Password%b   %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${GREEN}" "********" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b  %b󰀄  Username%b        %b│%b  %b%-22s%b  %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${WHITE}" "${USERNAME:-"(none)"}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                 %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b╚═════════════════════════════════════════════════╝%b\n" "${GREEN}" "${RC}"
+    printf "    %b󰌋%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Root Password" "${CYAN}" "********" "${RC}"
+    printf "    %b󰀄%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Username" "${WHITE}" "${USERNAME:-"(none)"}" "${RC}"
     
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
@@ -495,9 +839,9 @@ main_menu() {
         show_header
         show_system_info
         
-        printf "  %b╭─────────────────────────────────────────────╮%b\n" "${PURPLE}" "${RC}"
-        printf "  %b│%b %b󰍜  Main Menu%b                                 %b│%b\n" "${PURPLE}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b╰─────────────────────────────────────────────╯%b\n" "${PURPLE}" "${RC}"
+        printf "  %b╭───────────────────────────────────────────╮%b\n" "${PURPLE}" "${RC}"
+        printf "  %b│%b  %bMain Menu%b                                 %b│%b\n" "${PURPLE}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b╰───────────────────────────────────────────╯%b\n" "${PURPLE}" "${RC}"
         printf "\n"
         printf "    %b1%b  %b󰚰%b  %bStart Installation%b\n" "${CYAN}${BOLD}" "${RC}" "${GREEN}" "${RC}" "${WHITE}" "${RC}"
         printf "    %b2%b  %b󰆍%b  %bOpen Shell%b\n" "${CYAN}${BOLD}" "${RC}" "${YELLOW}" "${RC}" "${WHITE}" "${RC}"
