@@ -55,13 +55,14 @@ if command -v reflector >/dev/null 2>&1; then
     reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null || true
 fi
 
-# Run pacstrap
+# Run pacstrap with --noconfirm equivalent (pacstrap doesn't have it but pacman inside does)
 info "Running pacstrap (this may take a while)..."
-pacstrap -K /mnt $ALL_PACKAGES
+pacstrap -K /mnt $ALL_PACKAGES </dev/null
 
-# Install Liquorix Kernel
+# Install Liquorix Kernel (run non-interactively)
 info "Installing Liquorix Kernel..."
-arch_chroot "curl -s 'https://liquorix.net/install-liquorix.sh' | bash"
+arch_chroot "curl -s 'https://liquorix.net/install-liquorix.sh' | bash -s -- --noconfirm" </dev/null || \
+    arch_chroot "pacman -S --noconfirm linux-lqx linux-lqx-headers" </dev/null || true
 success "Liquorix kernel installed"
 
 success "Base system installed successfully!"

@@ -18,7 +18,7 @@ unmount_disk "$DISK"
 # Ensure parted is installed
 if ! command -v parted >/dev/null 2>&1; then
     info "Installing parted..."
-    pacman -Sy --noconfirm parted
+    pacman -Sy --noconfirm parted </dev/null
 fi
 
 # Wipe existing partition table

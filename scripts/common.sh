@@ -294,9 +294,9 @@ wait_for_disk() {
     sleep 1
 }
 
-# Arch-chroot wrapper
+# Arch-chroot wrapper (with stdin from /dev/null to prevent hangs)
 arch_chroot() {
-    arch-chroot /mnt /bin/bash -c "$1"
+    arch-chroot /mnt /bin/bash -c "$1" </dev/null
 }
 
 # Get partition suffix (handles nvme disks)

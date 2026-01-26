@@ -30,7 +30,7 @@ show_header() {
     printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b            %b*   Arch Linux Installer %b %bv1.0.0%b                    %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+    printf "  %b║%b           %b*  Arch Linux Installer%b %bv1.0.0%b                      %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
     printf "\n"
 }
@@ -744,7 +744,7 @@ show_summary() {
     
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
-    printf "  %b│%b  %b⚠  WARNING: This will ERASE ALL DATA on%b   %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}" "${RC}" "${RED}" "${RC}"
+    printf "  %b│%b  %b⚠  WARNING: This will ERASE ALL DATA on %b   %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}" "${RC}" "${RED}" "${RC}"
     printf "  %b│%b     %b%-38s%b  %b│%b\n" "${RED}" "${RC}" "${WHITE}${BOLD}" "$TARGET_DISK" "${RC}" "${RED}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${RED}" "${RC}"
     
@@ -791,7 +791,8 @@ run_installation() {
         progress_bar "$current" "$total"
         printf " %b%s%b..." "${WHITE}" "$step_name" "${RC}"
         
-        if sh "$SCRIPTS_DIR/$step" >/dev/null 2>&1; then
+        # Run script with stdin from /dev/null to prevent it from waiting for input
+        if sh "$SCRIPTS_DIR/$step" </dev/null >/dev/null 2>&1; then
             printf "\r"
             progress_bar "$current" "$total"
             printf " %b%-25s%b %b✓%b\n" "${WHITE}" "$step_name" "${RC}" "${GREEN}${BOLD}" "${RC}"
