@@ -41,13 +41,7 @@ check_environment() {
         exit 1
     fi
     
-    # Simple internet check - just try to reach any host
-    # Using IP address to avoid DNS delays
-    if ! ping -c 1 -W 5 1.1.1.1 >/dev/null 2>&1 && \
-       ! ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
-        printf "%b\n" "${RED}Error: No internet connection${RC}"
-        exit 1
-    fi
+    # Skip ping check - git/curl will fail if no internet anyway
     
     printf "%b\n" "${GREEN}Environment OK!${RC}"
 }
