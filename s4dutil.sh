@@ -750,14 +750,9 @@ show_summary() {
 
 # Run installation
 run_installation() {
-    show_header
-    
-    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰚰  Installing Arch Linux...%b                  %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
-    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
-    printf "\n"
-    
     SCRIPTS_DIR="$SCRIPT_DIR/scripts"
+    LOG_FILE="/tmp/s4dutil_install.log"
+    : > "$LOG_FILE"  # Clear log file
     
     steps="00-check-environment.sh
 01-partition-disk.sh
@@ -773,47 +768,113 @@ run_installation() {
     total=$(echo "$steps" | wc -l)
     current=0
     
+    # Store step statuses (0=pending, 1=running, 2=done, 3=failed)
+    step_status=""
+    for i in $(seq 1 $total); do
+        step_status="${step_status}0"
+    done
+    
+    # Function to redraw the screen
+    redraw_screen() {
+        clear
+        printf "\n"
+        printf "  %b╔═══════════════════════════════════════════════════════════════╗%b\n" "${PURPLE}" "${RC}"
+        printf "  %b║%b   %b____  _  _   ____  _   _ _   _ _%b                            %b║%b\n" "${PURPLE}" "${RC}" "${GRAD1}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b  %b/ ___|| || | |  _ \\| | | | |_(_) |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD2}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b  %b\\___ \\| || |_| | | | | | | __| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD3}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b║%b           %b*  Arch Linux Installer%b %bv1.0.0%b                      %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+        printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
+        printf "\n"
+        
+        printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+        printf "  %b│%b %b󰚰  Installing Arch Linux...%b                  %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+        printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+        printf "\n"
+        
+        # Show all steps with their status
+        idx=0
+        echo "$steps" | while IFS= read -r s; do
+            idx=$((idx + 1))
+            sname=$(echo "$s" | sed 's/[0-9]*-//;s/\.sh//;s/-/ /g')
+            pct=$((idx * 100 / total))
+            
+            # Get status for this step
+            stat=$(echo "$step_status" | cut -c"$idx")
+            
+            case "$stat" in
+                0) # Pending
+                    printf "    %b○%b  %b%3d%%%b  %b%-25s%b\n" "${DIM}" "${RC}" "${DIM}" "$pct" "${RC}" "${DIM}" "$sname" "${RC}"
+                    ;;
+                1) # Running
+                    printf "    %b◐%b  %b%3d%%%b  %b%-25s%b %b...%b\n" "${YELLOW}" "${RC}" "${YELLOW}" "$pct" "${RC}" "${WHITE}${BOLD}" "$sname" "${RC}" "${YELLOW}" "${RC}"
+                    ;;
+                2) # Done
+                    printf "    %b✓%b  %b%3d%%%b  %b%-25s%b\n" "${GREEN}${BOLD}" "${RC}" "${GREEN}" "$pct" "${RC}" "${WHITE}" "$sname" "${RC}"
+                    ;;
+                3) # Failed
+                    printf "    %b✗%b  %b%3d%%%b  %b%-25s%b\n" "${RED}${BOLD}" "${RC}" "${RED}" "$pct" "${RC}" "${WHITE}" "$sname" "${RC}"
+                    ;;
+            esac
+        done
+        
+        printf "\n"
+        
+        # Live log box
+        printf "  %b╭───────────────────────────────────────────────────────────────╮%b\n" "${DIM}" "${RC}"
+        printf "  %b│%b %b󰎚  Live Log%b                                                   %b│%b\n" "${DIM}" "${RC}" "${CYAN}${BOLD}" "${RC}" "${DIM}" "${RC}"
+        printf "  %b├───────────────────────────────────────────────────────────────┤%b\n" "${DIM}" "${RC}"
+        
+        # Show last 8 lines of log
+        if [ -f "$LOG_FILE" ] && [ -s "$LOG_FILE" ]; then
+            tail -8 "$LOG_FILE" | while IFS= read -r logline; do
+                truncated=$(echo "$logline" | cut -c1-63)
+                printf "  %b│%b  %b%-63s%b%b│%b\n" "${DIM}" "${RC}" "${CYAN}" "$truncated" "${RC}" "${DIM}" "${RC}"
+            done
+        else
+            printf "  %b│%b  %b%-63s%b%b│%b\n" "${DIM}" "${RC}" "${DIM}" "Waiting for output..." "${RC}" "${DIM}" "${RC}"
+        fi
+        
+        printf "  %b╰───────────────────────────────────────────────────────────────╯%b\n" "${DIM}" "${RC}"
+    }
+    
     for step in $steps; do
         current=$((current + 1))
         step_name=$(echo "$step" | sed 's/[0-9]*-//;s/\.sh//;s/-/ /g')
         
-        # Show progress bar
-        printf "\r"
-        progress_bar "$current" "$total"
-        printf " %b%s%b..." "${WHITE}" "$step_name" "${RC}"
+        # Update status to running
+        step_status=$(echo "$step_status" | sed "s/./1/$current")
+        redraw_screen
         
-        # Run script with stdin from /dev/null to prevent it from waiting for input
-        if sh "$SCRIPTS_DIR/$step" </dev/null >/dev/null 2>&1; then
-            printf "\r"
-            progress_bar "$current" "$total"
-            printf " %b%-25s%b %b✓%b\n" "${WHITE}" "$step_name" "${RC}" "${GREEN}${BOLD}" "${RC}"
+        # Log separator
+        printf "\n=== %s ===\n" "$step_name" >> "$LOG_FILE"
+        
+        # Run script and capture output
+        if sh "$SCRIPTS_DIR/$step" </dev/null >> "$LOG_FILE" 2>&1; then
+            # Update status to done
+            step_status=$(echo "$step_status" | sed "s/./2/$current")
         else
-            printf "\r"
-            progress_bar "$current" "$total"
-            printf " %b%-25s%b %b✗%b\n" "${WHITE}" "$step_name" "${RC}" "${RED}${BOLD}" "${RC}"
+            # Update status to failed
+            step_status=$(echo "$step_status" | sed "s/./3/$current")
+            redraw_screen
             printf "\n"
             err "Installation failed at step: $step"
-            printf "  %bCheck the error above and try again.%b\n" "${DIM}" "${RC}"
+            printf "  %bCheck log: %s%b\n" "${DIM}" "$LOG_FILE" "${RC}"
             exit 1
         fi
+        
+        # Redraw with updated status
+        redraw_screen
     done
     
-    # Installation complete - fancy summary
-    printf "\n\n"
-    printf "  %b╔═══════════════════════════════════════════════════╗%b\n" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                   %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b       %b✨  Installation Complete!  ✨%b              %b║%b\n" "${GREEN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                   %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b╠═══════════════════════════════════════════════════╣%b\n" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                   %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b    %b󰇄  Hostname:%b      %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "$HOSTNAME" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b    %b󰌽  Kernel:%b        %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${YELLOW}${BOLD}" "Liquorix" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b    %b󰋊  Bootloader:%b    %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}" "$BOOTLOADER" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b    %b󰉋  Filesystem:%b    %b%-24s%b   %b║%b\n" "${GREEN}" "${RC}" "${PURPLE}" "${RC}" "${WHITE}" "$FILESYSTEM" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b║%b                                                   %b║%b\n" "${GREEN}" "${RC}" "${GREEN}" "${RC}"
-    printf "  %b╚═══════════════════════════════════════════════════╝%b\n" "${GREEN}" "${RC}"
-    printf "\n"
+    printf "\n  %b󰎚  Full log saved to: %s%b\n" "${DIM}" "$LOG_FILE" "${RC}"
     
+    # Installation complete
+    printf "\n"
+    ok "Installation Complete!"
+    printf "\n"
     printf "  %bYou can now reboot into your new system.%b\n" "${WHITE}" "${RC}"
     warn "Remember to remove the installation media!"
     printf "\n"
