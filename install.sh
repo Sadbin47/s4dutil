@@ -41,8 +41,38 @@ check_environment() {
         exit 1
     fi
     
-    # Use timeout to prevent ping from hanging
-    if ! timeout 3 ping -c 1 archlinux.org >/dev/null 2>&1; then
+    # Check internet - try multiple methods
+    INTERNET_OK=0
+    
+    # Method 1: Try curl (most reliable)
+    if command -v curl >/dev/null 2>&1; then
+        if curl -s --connect-timeout 5 --max-time 10 https://archlinux.org >/dev/null 2>&1; then
+            INTERNET_OK=1
+        fi
+    fi
+    
+    # Method 2: Try wget if curl failed
+    if [ "$INTERNET_OK" = "0" ] && command -v wget >/dev/null 2>&1; then
+        if wget -q --timeout=5 --tries=1 -O /dev/null https://archlinux.org 2>/dev/null; then
+            INTERNET_OK=1
+        fi
+    fi
+    
+    # Method 3: Try ping with timeout (fallback)
+    if [ "$INTERNET_OK" = "0" ]; then
+        if command -v timeout >/dev/null 2>&1; then
+            if timeout 5 ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+                INTERNET_OK=1
+            fi
+        else
+            # No timeout command, use ping's built-in timeout
+            if ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
+                INTERNET_OK=1
+            fi
+        fi
+    fi
+    
+    if [ "$INTERNET_OK" = "0" ]; then
         printf "%b\n" "${RED}Error: No internet connection${RC}"
         exit 1
     fi

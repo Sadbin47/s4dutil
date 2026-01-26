@@ -251,9 +251,25 @@ check_live_iso() {
     fi
 }
 
-# Check internet connection
+# Check internet connection (multiple methods for reliability)
 check_internet() {
-    if ! timeout 3 ping -c 1 archlinux.org >/dev/null 2>&1; then
+    INET_OK=0
+    
+    # Try curl first (most reliable)
+    if command -v curl >/dev/null 2>&1; then
+        if curl -s --connect-timeout 5 --max-time 10 https://archlinux.org >/dev/null 2>&1; then
+            INET_OK=1
+        fi
+    fi
+    
+    # Fallback to ping
+    if [ "$INET_OK" = "0" ]; then
+        if ping -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
+            INET_OK=1
+        fi
+    fi
+    
+    if [ "$INET_OK" = "0" ]; then
         error "No internet connection"
         exit 1
     fi

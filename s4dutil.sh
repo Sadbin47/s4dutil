@@ -53,8 +53,15 @@ show_system_info() {
         IS_UEFI=0
     fi
     
-    # Internet (use timeout to prevent hanging)
-    if timeout 3 ping -c 1 archlinux.org >/dev/null 2>&1; then
+    # Internet check (multiple methods for reliability)
+    INET_OK=0
+    if command -v curl >/dev/null 2>&1 && curl -s --connect-timeout 3 --max-time 5 https://archlinux.org >/dev/null 2>&1; then
+        INET_OK=1
+    elif ping -c 1 -W 3 8.8.8.8 >/dev/null 2>&1; then
+        INET_OK=1
+    fi
+    
+    if [ "$INET_OK" = "1" ]; then
         printf "    %b󰖩%b  Internet       %b│%b  %b● Connected%b\n" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${GREEN}${BOLD}" "${RC}"
     else
         printf "    %b󰖪%b  Internet       %b│%b  %b● Not Connected%b\n" "${PURPLE}" "${RC}" "${DIM}" "${RC}" "${RED}${BOLD}" "${RC}"
