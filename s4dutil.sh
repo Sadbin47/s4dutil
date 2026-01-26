@@ -30,7 +30,7 @@ show_header() {
     printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b            %b*   Arch Linux Installer%b %bv1.0.0%b                      %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
+    printf "  %b║%b            %b*   Arch Linux Installer%b %bv1.0.0%b                     %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
     printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
     printf "\n"
 }
