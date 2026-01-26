@@ -155,12 +155,32 @@ select_disk() {
         [Yy]*)
             ok "Selected: $TARGET_DISK"
             export S4D_TARGET_DISK="$TARGET_DISK"
-            sleep 1
             ;;
         *)
             select_disk
+            return
             ;;
     esac
+    
+    # Filesystem selection
+    printf "\n"
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b %b10cb  Filesystem Selection%b                    %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "\n"
+    printf "    %b󰉋%b  %bFilesystem%b %b[Default: ext4]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
+    printf "\n"
+    printf "      %b1%b) %bext4%b            %b(stable, recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %bxfs%b             %b(high performance)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r fs_choice
+    case "$fs_choice" in
+        2) FILESYSTEM="xfs" ;;
+        *) FILESYSTEM="ext4" ;;
+    esac
+    export S4D_FILESYSTEM="$FILESYSTEM"
+    ok "Filesystem: $FILESYSTEM"
+    sleep 1
 }
 
 # Configure system settings
@@ -216,11 +236,7 @@ configure_system() {
     printf "      %b3%b) %bde_DE.UTF-8%b       %b(German)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b4%b) %bfr_FR.UTF-8%b       %b(French)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b5%b) %bes_ES.UTF-8%b       %b(Spanish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b6%b) %bpt_BR.UTF-8%b       %b(Portuguese - Brazil)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b7%b) %bru_RU.UTF-8%b       %b(Russian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b8%b) %bzh_CN.UTF-8%b       %b(Chinese - Simplified)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b9%b) %bja_JP.UTF-8%b       %b(Japanese)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b10%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "      %b6%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
     printf "\n       %b➜%b " "${CYAN}" "${RC}"
     read -r locale_choice
     
@@ -230,11 +246,7 @@ configure_system() {
         3) LOCALE="de_DE.UTF-8" ;;
         4) LOCALE="fr_FR.UTF-8" ;;
         5) LOCALE="es_ES.UTF-8" ;;
-        6) LOCALE="pt_BR.UTF-8" ;;
-        7) LOCALE="ru_RU.UTF-8" ;;
-        8) LOCALE="zh_CN.UTF-8" ;;
-        9) LOCALE="ja_JP.UTF-8" ;;
-        10) 
+        6) 
             select_locale
             ;;
         *) LOCALE="en_US.UTF-8" ;;
@@ -247,13 +259,7 @@ configure_system() {
     printf "      %b1%b) %bus%b      %b(US English)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b2%b) %buk%b      %b(UK English)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b3%b) %bde%b      %b(German)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b4%b) %bfr%b      %b(French)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b5%b) %bes%b      %b(Spanish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b6%b) %bit%b      %b(Italian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b7%b) %bru%b      %b(Russian)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b8%b) %bpl%b      %b(Polish)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b9%b) %bbr%b      %b(Portuguese - Brazil)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b10%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "      %b4%b) %bShow all available...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
     printf "\n       %b➜%b " "${CYAN}" "${RC}"
     read -r keymap_choice
     
@@ -261,13 +267,7 @@ configure_system() {
         1) KEYMAP="us" ;;
         2) KEYMAP="uk" ;;
         3) KEYMAP="de" ;;
-        4) KEYMAP="fr" ;;
-        5) KEYMAP="es" ;;
-        6) KEYMAP="it" ;;
-        7) KEYMAP="ru" ;;
-        8) KEYMAP="pl" ;;
-        9) KEYMAP="br" ;;
-        10) 
+        4) 
             select_keymap
             ;;
         *) KEYMAP="us" ;;
@@ -290,26 +290,12 @@ configure_system() {
         BOOTLOADER="grub"
     fi
     
-    # Filesystem selection
-    printf "\n"
-    printf "    %b󰉋%b  %bFilesystem%b %b[Default: ext4]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
-    printf "\n"
-    printf "      %b1%b) %bext4%b            %b(stable, recommended)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b2%b) %bxfs%b             %b(high performance)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "\n       %b➜%b " "${CYAN}" "${RC}"
-    read -r fs_choice
-    case "$fs_choice" in
-        2) FILESYSTEM="xfs" ;;
-        *) FILESYSTEM="ext4" ;;
-    esac
-    
     # Export variables
     export S4D_HOSTNAME="$HOSTNAME"
     export S4D_TIMEZONE="$TIMEZONE"
     export S4D_LOCALE="$LOCALE"
     export S4D_KEYMAP="$KEYMAP"
     export S4D_BOOTLOADER="$BOOTLOADER"
-    export S4D_FILESYSTEM="$FILESYSTEM"
     export S4D_IS_UEFI="$IS_UEFI"
     
     printf "\n"
@@ -323,16 +309,11 @@ select_timezone() {
     printf "      %b1%b) %bUTC%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
     printf "      %b2%b) %bAmerica/New_York%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
     printf "      %b3%b) %bAmerica/Los_Angeles%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b4%b) %bAmerica/Chicago%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b5%b) %bEurope/London%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b6%b) %bEurope/Berlin%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b7%b) %bEurope/Paris%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b8%b) %bAsia/Tokyo%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b9%b) %bAsia/Shanghai%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b10%b) %bAsia/Dhaka%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b11%b) %bAsia/Kolkata%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b12%b) %bAustralia/Sydney%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
-    printf "      %b13%b) %bEnter custom...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
+    printf "      %b4%b) %bEurope/London%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b5%b) %bAsia/Tokyo%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b6%b) %bAsia/Shanghai%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b7%b) %bAsia/Dhaka%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}"
+    printf "      %b8%b) %bEnter custom...%b\n" "${YELLOW}${BOLD}" "${RC}" "${YELLOW}" "${RC}"
     printf "\n       %b➜%b " "${CYAN}" "${RC}"
     read -r tz_choice
     
@@ -340,16 +321,11 @@ select_timezone() {
         1) TIMEZONE="UTC" ;;
         2) TIMEZONE="America/New_York" ;;
         3) TIMEZONE="America/Los_Angeles" ;;
-        4) TIMEZONE="America/Chicago" ;;
-        5) TIMEZONE="Europe/London" ;;
-        6) TIMEZONE="Europe/Berlin" ;;
-        7) TIMEZONE="Europe/Paris" ;;
-        8) TIMEZONE="Asia/Tokyo" ;;
-        9) TIMEZONE="Asia/Shanghai" ;;
-        10) TIMEZONE="Asia/Dhaka" ;;
-        11) TIMEZONE="Asia/Kolkata" ;;
-        12) TIMEZONE="Australia/Sydney" ;;
-        13) 
+        4) TIMEZONE="Europe/London" ;;
+        5) TIMEZONE="Asia/Tokyo" ;;
+        6) TIMEZONE="Asia/Shanghai" ;;
+        7) TIMEZONE="Asia/Dhaka" ;;
+        8) 
             printf "       %bEnter timezone (e.g., Europe/London):%b " "${WHITE}" "${RC}"
             read -r TIMEZONE
             ;;
