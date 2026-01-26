@@ -1,0 +1,22 @@
+name: s4dutil
+about: A release of S4DUtil - Arch Linux Installer
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Installation
+        
+        Boot into Arch Linux Live ISO, then run:
+        
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/s4dutil/main/install.sh | sh
+        ```
+        
+        Or download the binary directly:
+        
+        ```bash
+        curl -LO https://github.com/YOUR_USERNAME/s4dutil/releases/latest/download/s4dutil-linux-x86_64
+        chmod +x s4dutil-linux-x86_64
+        ./s4dutil-linux-x86_64
+        ```

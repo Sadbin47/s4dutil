@@ -1,0 +1,77 @@
+# S4DUtil Menu Configuration
+# This file defines the installation steps
+
+[meta]
+name = "S4DUtil"
+version = "1.0.0"
+description = "Arch Linux Installer"
+
+[[steps]]
+id = "check_env"
+name = "Check Environment"
+description = "Verify system requirements (root, live ISO, internet)"
+script = "00-check-environment.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "partition"
+name = "Partition Disk"
+description = "Create partitions on the target disk"
+script = "01-partition-disk.sh"
+requires_confirmation = true
+
+[[steps]]
+id = "format"
+name = "Format Partitions"
+description = "Create filesystems on partitions"
+script = "02-format-partitions.sh"
+requires_confirmation = true
+
+[[steps]]
+id = "mount"
+name = "Mount Partitions"
+description = "Mount partitions to /mnt"
+script = "03-mount-partitions.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "pacstrap"
+name = "Install Base System"
+description = "Install base packages with pacstrap"
+script = "04-install-base.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "genfstab"
+name = "Generate fstab"
+description = "Generate filesystem table"
+script = "05-generate-fstab.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "configure"
+name = "Configure System"
+description = "Set locale, timezone, hostname"
+script = "06-configure-system.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "users"
+name = "Setup Users"
+description = "Set root password and create user"
+script = "07-setup-users.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "bootloader"
+name = "Install Bootloader"
+description = "Install and configure GRUB or systemd-boot"
+script = "08-install-bootloader.sh"
+requires_confirmation = false
+
+[[steps]]
+id = "finalize"
+name = "Finalize Installation"
+description = "Unmount and prepare for reboot"
+script = "09-finalize.sh"
+requires_confirmation = false

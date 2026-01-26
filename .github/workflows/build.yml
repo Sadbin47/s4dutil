@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ git
+    
+    - name: Build
+      run: |
+        mkdir build
+        cd build
+        cmake ..
+        make -j$(nproc)
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: s4dutil-linux-x86_64
+        path: build/s4dutil
+  
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: s4dutil-linux-x86_64
+        path: dist/
+    
+    - name: Package scripts
+      run: |
+        tar -czvf dist/scripts.tar.gz scripts/ config/
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/s4dutil
+          dist/scripts.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install ShellCheck
+      run: sudo apt-get install -y shellcheck
+    
+    - name: Run ShellCheck
+      run: |
+        shellcheck scripts/*.sh || true
