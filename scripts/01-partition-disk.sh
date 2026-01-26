@@ -15,6 +15,12 @@ warn "This will ERASE ALL DATA on $DISK!"
 # Unmount any existing partitions
 unmount_disk "$DISK"
 
+# Ensure parted is installed
+if ! command -v parted >/dev/null 2>&1; then
+    info "Installing parted..."
+    pacman -Sy --noconfirm parted
+fi
+
 # Wipe existing partition table
 info "Wiping existing partition table..."
 wipefs -af "$DISK" >/dev/null 2>&1 || true
