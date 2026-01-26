@@ -83,12 +83,12 @@ select_disk() {
     show_header
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
-    printf "  %b│%b  %b⚠  WARNING: ALL DATA WILL BE ERASED!%b      %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}${BLINK}" "${RC}" "${RED}" "${RC}"
+    printf "  %b│%b %b⚠  WARNING: ALL DATA WILL BE ERASED!%b      %b│%b\n" "${RED}" "${RC}" "${BOLD}${YELLOW}${BLINK}" "${RC}" "${RED}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${RED}" "${RC}"
     printf "\n"
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b  %b󰋊  Available Disks%b                         %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰋊  Available Disks%b                          %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
@@ -147,7 +147,7 @@ select_disk() {
     # Confirm
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${RED}" "${RC}"
-    printf "  %b│%b  %bALL DATA ON %-12s WILL BE LOST!%b  %b│%b\n" "${RED}" "${RC}" "${BOLD}${WHITE}" "$TARGET_DISK" "${RC}" "${RED}" "${RC}"
+    printf "  %b│%b %bALL DATA ON %-12s WILL BE LOST!%b     %b│%b\n" "${RED}" "${RC}" "${BOLD}${WHITE}" "$TARGET_DISK" "${RC}" "${RED}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${RED}" "${RC}"
     printf "\n  %bAre you sure?%b %b[y/N]%b: " "${WHITE}" "${RC}" "${DIM}" "${RC}"
     read -r confirm
