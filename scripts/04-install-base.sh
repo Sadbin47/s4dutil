@@ -10,7 +10,7 @@ check_internet
 info "Installing base system..."
 
 # Base packages (no kernel - we'll install Liquorix after)
-BASE_PACKAGES="base linux-firmware"
+BASE_PACKAGES="base linux-firmware mkinitcpio"
 
 # Essential packages
 ESSENTIAL_PACKAGES="base-devel sudo networkmanager vim nano git curl wget xfsprogs"

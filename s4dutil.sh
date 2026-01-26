@@ -831,7 +831,7 @@ run_installation() {
         if [ -f "$LOG_FILE" ] && [ -s "$LOG_FILE" ]; then
             tail -8 "$LOG_FILE" | while IFS= read -r logline; do
                 truncated=$(echo "$logline" | cut -c1-63)
-                printf "  %b│%b  %b%-63s%b%b│%b\n" "${DIM}" "${RC}" "${CYAN}" "$truncated" "${RC}" "${DIM}" "${RC}"
+                printf "  %b%b  %b%-63s%b%b%b\n" "${DIM}" "${RC}" "${CYAN}" "$truncated" "${RC}" "${DIM}" "${RC}"
             done
         else
             printf "  %b│%b  %b%-63s%b%b│%b\n" "${DIM}" "${RC}" "${DIM}" "Waiting for output..." "${RC}" "${DIM}" "${RC}"
