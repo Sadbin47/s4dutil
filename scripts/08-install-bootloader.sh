@@ -1,6 +1,6 @@
 #!/bin/sh
 # S4DUtil - Step 8: Install Bootloader
-# Installs and configures GRUB or systemd-boot
+# Installs and configures GRUB or systemd-boot with kernel support
 
 . "$(dirname "$0")/common.sh"
 
@@ -12,67 +12,433 @@ BOOTLOADER="${S4D_BOOTLOADER:-grub}"
 
 info "Installing bootloader: $BOOTLOADER"
 
-if [ "$BOOTLOADER" = "systemd-boot" ]; then
-    ###################
-    # systemd-boot
-    ###################
-    if ! is_uefi; then
-        error "systemd-boot requires UEFI. Falling back to GRUB."
-        BOOTLOADER="grub"
-    else
-        info "Installing systemd-boot..."
-        arch_chroot "bootctl install"
-        
-        # Create loader.conf
-        cat > /mnt/boot/efi/loader/loader.conf << EOF
-default arch-lqx.conf
-timeout 3
-console-mode max
-editor no
-EOF
-        
-        # Get root partition UUID
-        ROOT_PART=$(get_partition "$DISK" 2)
-        ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
-        
-        # Detect microcode
-        INITRD_UCODE=""
-        if [ -f /mnt/boot/intel-ucode.img ]; then
-            INITRD_UCODE="initrd  /intel-ucode.img"
-        elif [ -f /mnt/boot/amd-ucode.img ]; then
-            INITRD_UCODE="initrd  /amd-ucode.img"
-        fi
-        
-        # Create arch-lqx.conf entry for Liquorix kernel
-        cat > /mnt/boot/efi/loader/entries/arch-lqx.conf << EOF
-title   Arch Linux (Liquorix)
-linux   /vmlinuz-linux-lqx
-$INITRD_UCODE
-initrd  /initramfs-linux-lqx.img
-options root=UUID=$ROOT_UUID rw
-EOF
-        
-        success "systemd-boot installed with Liquorix kernel"
-    fi
-fi
+# ═══════════════════════════════════════════════════════════════
+#                    KERNEL DETECTION
+# ═══════════════════════════════════════════════════════════════
 
-if [ "$BOOTLOADER" = "grub" ]; then
-    ###################
-    # GRUB
-    ###################
-    if is_uefi; then
-        info "Installing GRUB for UEFI..."
-        arch_chroot "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB"
-    else
-        info "Installing GRUB for BIOS..."
-        arch_chroot "grub-install --target=i386-pc $DISK"
+# Detect available kernels in the installed system
+detect_kernels() {
+    KERNELS=""
+    
+    # Check for Liquorix kernel (our primary)
+    if [ -f /mnt/boot/vmlinuz-linux-lqx ]; then
+        KERNELS="linux-lqx $KERNELS"
+        info "Detected Liquorix kernel"
     fi
     
-    # Generate GRUB config
+    # Check for standard Linux kernel
+    if [ -f /mnt/boot/vmlinuz-linux ]; then
+        KERNELS="linux $KERNELS"
+        info "Detected standard Linux kernel"
+    fi
+    
+    # Check for LTS kernel
+    if [ -f /mnt/boot/vmlinuz-linux-lts ]; then
+        KERNELS="linux-lts $KERNELS"
+        info "Detected Linux LTS kernel"
+    fi
+    
+    # Check for Zen kernel
+    if [ -f /mnt/boot/vmlinuz-linux-zen ]; then
+        KERNELS="linux-zen $KERNELS"
+        info "Detected Linux Zen kernel"
+    fi
+    
+    # Check for Hardened kernel
+    if [ -f /mnt/boot/vmlinuz-linux-hardened ]; then
+        KERNELS="linux-hardened $KERNELS"
+        info "Detected Linux Hardened kernel"
+    fi
+    
+    if [ -z "$KERNELS" ]; then
+        warn "No kernel detected! Installation may have failed."
+        # Fallback to linux-lqx as we installed it
+        KERNELS="linux-lqx"
+    fi
+    
+    echo "$KERNELS"
+}
+
+# Detect microcode package
+detect_microcode() {
+    if [ -f /mnt/boot/intel-ucode.img ]; then
+        echo "intel-ucode.img"
+    elif [ -f /mnt/boot/amd-ucode.img ]; then
+        echo "amd-ucode.img"
+    else
+        echo ""
+    fi
+}
+
+# Get root partition and UUID
+ROOT_PART=$(get_partition "$DISK" 2)
+if ! is_uefi; then
+    ROOT_PART=$(get_partition "$DISK" 1)
+fi
+ROOT_UUID=$(blkid -s UUID -o value "$ROOT_PART")
+MICROCODE=$(detect_microcode)
+DETECTED_KERNELS=$(detect_kernels)
+
+info "Root partition: $ROOT_PART"
+info "Root UUID: $ROOT_UUID"
+[ -n "$MICROCODE" ] && info "Microcode: $MICROCODE"
+
+# ═══════════════════════════════════════════════════════════════
+#                    REGENERATE INITRAMFS
+# ═══════════════════════════════════════════════════════════════
+
+regenerate_initramfs() {
+    info "Regenerating initramfs for all installed kernels..."
+    
+    # Configure mkinitcpio hooks for optimal boot
+    # Add necessary hooks for encryption support, keyboard, etc.
+    if [ -f /mnt/etc/mkinitcpio.conf ]; then
+        # Backup original
+        cp /mnt/etc/mkinitcpio.conf /mnt/etc/mkinitcpio.conf.backup
+        
+        # Update HOOKS for better hardware support
+        # base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck
+        sed -i 's/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block filesystems fsck)/' /mnt/etc/mkinitcpio.conf
+    fi
+    
+    # Regenerate initramfs for all kernels
+    arch_chroot "mkinitcpio -P"
+    success "Initramfs regenerated for all kernels"
+}
+
+# Always regenerate initramfs before installing bootloader
+regenerate_initramfs
+
+# ═══════════════════════════════════════════════════════════════
+#                    SYSTEMD-BOOT INSTALLATION
+# ═══════════════════════════════════════════════════════════════
+
+install_systemd_boot() {
+    if ! is_uefi; then
+        error "systemd-boot requires UEFI mode!"
+        error "Your system is booted in BIOS/Legacy mode."
+        error "Falling back to GRUB..."
+        return 1
+    fi
+    
+    info "Installing systemd-boot..."
+    
+    # Install bootctl
+    arch_chroot "bootctl --esp-path=/boot/efi install"
+    
+    # Create loader directory structure
+    mkdir -p /mnt/boot/efi/loader/entries
+    
+    # Create loader.conf
+    info "Creating loader configuration..."
+    
+    # Determine default kernel (prefer Liquorix)
+    DEFAULT_ENTRY="arch-linux-lqx.conf"
+    if ! echo "$DETECTED_KERNELS" | grep -q "linux-lqx"; then
+        if echo "$DETECTED_KERNELS" | grep -q "linux-zen"; then
+            DEFAULT_ENTRY="arch-linux-zen.conf"
+        elif echo "$DETECTED_KERNELS" | grep -q "linux"; then
+            DEFAULT_ENTRY="arch-linux.conf"
+        fi
+    fi
+    
+    cat > /mnt/boot/efi/loader/loader.conf << EOF
+# systemd-boot configuration
+# Generated by S4DUtil
+
+default $DEFAULT_ENTRY
+timeout 5
+console-mode max
+editor no
+auto-entries 1
+auto-firmware 1
+EOF
+    
+    # Create boot entries for each detected kernel
+    for kernel in $DETECTED_KERNELS; do
+        create_systemd_boot_entry "$kernel"
+    done
+    
+    # Enable automatic updates for systemd-boot
+    arch_chroot "systemctl enable systemd-boot-update.service" 2>/dev/null || true
+    
+    success "systemd-boot installed successfully!"
+    return 0
+}
+
+create_systemd_boot_entry() {
+    kernel="$1"
+    
+    case "$kernel" in
+        linux-lqx)
+            TITLE="Arch Linux (Liquorix)"
+            VMLINUZ="vmlinuz-linux-lqx"
+            INITRD="initramfs-linux-lqx.img"
+            INITRD_FALLBACK="initramfs-linux-lqx-fallback.img"
+            ENTRY_NAME="arch-linux-lqx"
+            ;;
+        linux-zen)
+            TITLE="Arch Linux (Zen)"
+            VMLINUZ="vmlinuz-linux-zen"
+            INITRD="initramfs-linux-zen.img"
+            INITRD_FALLBACK="initramfs-linux-zen-fallback.img"
+            ENTRY_NAME="arch-linux-zen"
+            ;;
+        linux-lts)
+            TITLE="Arch Linux (LTS)"
+            VMLINUZ="vmlinuz-linux-lts"
+            INITRD="initramfs-linux-lts.img"
+            INITRD_FALLBACK="initramfs-linux-lts-fallback.img"
+            ENTRY_NAME="arch-linux-lts"
+            ;;
+        linux-hardened)
+            TITLE="Arch Linux (Hardened)"
+            VMLINUZ="vmlinuz-linux-hardened"
+            INITRD="initramfs-linux-hardened.img"
+            INITRD_FALLBACK="initramfs-linux-hardened-fallback.img"
+            ENTRY_NAME="arch-linux-hardened"
+            ;;
+        linux)
+            TITLE="Arch Linux"
+            VMLINUZ="vmlinuz-linux"
+            INITRD="initramfs-linux.img"
+            INITRD_FALLBACK="initramfs-linux-fallback.img"
+            ENTRY_NAME="arch-linux"
+            ;;
+        *)
+            warn "Unknown kernel: $kernel, skipping..."
+            return
+            ;;
+    esac
+    
+    info "Creating boot entry for $TITLE..."
+    
+    # Build initrd lines (microcode first if available)
+    INITRD_LINES=""
+    if [ -n "$MICROCODE" ]; then
+        INITRD_LINES="initrd  /$MICROCODE"$'\n'
+    fi
+    INITRD_LINES="${INITRD_LINES}initrd  /$INITRD"
+    
+    # Kernel command line options
+    # Add common optimizations and quiet boot
+    CMDLINE="root=UUID=$ROOT_UUID rw quiet loglevel=3 rd.systemd.show_status=auto rd.udev.log_priority=3"
+    
+    # Main entry
+    cat > "/mnt/boot/efi/loader/entries/${ENTRY_NAME}.conf" << EOF
+title   $TITLE
+linux   /$VMLINUZ
+$INITRD_LINES
+options $CMDLINE
+EOF
+    
+    # Fallback entry
+    INITRD_FALLBACK_LINES=""
+    if [ -n "$MICROCODE" ]; then
+        INITRD_FALLBACK_LINES="initrd  /$MICROCODE"$'\n'
+    fi
+    INITRD_FALLBACK_LINES="${INITRD_FALLBACK_LINES}initrd  /$INITRD_FALLBACK"
+    
+    cat > "/mnt/boot/efi/loader/entries/${ENTRY_NAME}-fallback.conf" << EOF
+title   $TITLE (Fallback)
+linux   /$VMLINUZ
+$INITRD_FALLBACK_LINES
+options $CMDLINE
+EOF
+    
+    success "Created boot entries for $TITLE"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                    GRUB INSTALLATION
+# ═══════════════════════════════════════════════════════════════
+
+install_grub() {
+    info "Installing GRUB bootloader..."
+    
+    # Configure GRUB defaults
+    info "Configuring GRUB settings..."
+    
+    if [ -f /mnt/etc/default/grub ]; then
+        # Backup original
+        cp /mnt/etc/default/grub /mnt/etc/default/grub.backup
+        
+        # Set timeout
+        sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=5/' /mnt/etc/default/grub
+        
+        # Enable OS prober for dual boot
+        if ! grep -q "GRUB_DISABLE_OS_PROBER" /mnt/etc/default/grub; then
+            echo 'GRUB_DISABLE_OS_PROBER=false' >> /mnt/etc/default/grub
+        else
+            sed -i 's/^#*GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=false/' /mnt/etc/default/grub
+        fi
+        
+        # Set kernel parameters for quiet boot
+        GRUB_CMDLINE='GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 rd.systemd.show_status=auto rd.udev.log_priority=3"'
+        sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=.*/$GRUB_CMDLINE/" /mnt/etc/default/grub
+        
+        # Enable GRUB to remember last selection
+        if ! grep -q "GRUB_DEFAULT=saved" /mnt/etc/default/grub; then
+            sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /mnt/etc/default/grub
+        fi
+        if ! grep -q "GRUB_SAVEDEFAULT" /mnt/etc/default/grub; then
+            echo 'GRUB_SAVEDEFAULT=true' >> /mnt/etc/default/grub
+        fi
+    fi
+    
+    if is_uefi; then
+        ###################
+        # GRUB for UEFI
+        ###################
+        info "Installing GRUB for UEFI system..."
+        
+        arch_chroot "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=GRUB --recheck"
+        
+        # Install to removable path as backup (useful for some UEFI implementations)
+        mkdir -p /mnt/boot/efi/EFI/BOOT
+        cp /mnt/boot/efi/EFI/GRUB/grubx64.efi /mnt/boot/efi/EFI/BOOT/BOOTX64.EFI 2>/dev/null || true
+        
+    else
+        ###################
+        # GRUB for BIOS
+        ###################
+        info "Installing GRUB for BIOS/Legacy system..."
+        
+        arch_chroot "grub-install --target=i386-pc --recheck $DISK"
+    fi
+    
+    # Generate GRUB configuration
     info "Generating GRUB configuration..."
     arch_chroot "grub-mkconfig -o /boot/grub/grub.cfg"
     
-    success "GRUB installed"
+    success "GRUB installed successfully!"
+}
+
+# ═══════════════════════════════════════════════════════════════
+#                    MAIN INSTALLATION LOGIC
+# ═══════════════════════════════════════════════════════════════
+
+# First, copy kernel and initramfs to EFI partition for systemd-boot
+# (only needed for systemd-boot as GRUB reads from /boot directly)
+if [ "$BOOTLOADER" = "systemd-boot" ] && is_uefi; then
+    info "Copying kernel files to EFI partition..."
+    
+    # Copy all kernel files to EFI partition
+    for kernel in $DETECTED_KERNELS; do
+        case "$kernel" in
+            linux-lqx)
+                cp -f /mnt/boot/vmlinuz-linux-lqx /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-lqx.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-lqx-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+            linux-zen)
+                cp -f /mnt/boot/vmlinuz-linux-zen /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-zen.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-zen-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+            linux-lts)
+                cp -f /mnt/boot/vmlinuz-linux-lts /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-lts.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-lts-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+            linux-hardened)
+                cp -f /mnt/boot/vmlinuz-linux-hardened /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-hardened.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-hardened-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+            linux)
+                cp -f /mnt/boot/vmlinuz-linux /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+        esac
+    done
+    
+    # Copy microcode if available
+    [ -n "$MICROCODE" ] && cp -f /mnt/boot/"$MICROCODE" /mnt/boot/efi/ 2>/dev/null || true
+    
+    success "Kernel files copied to EFI partition"
 fi
+
+# Install the selected bootloader
+case "$BOOTLOADER" in
+    systemd-boot)
+        if ! install_systemd_boot; then
+            warn "systemd-boot installation failed, falling back to GRUB..."
+            install_grub
+        fi
+        ;;
+    grub|*)
+        install_grub
+        ;;
+esac
+
+# ═══════════════════════════════════════════════════════════════
+#                    POST-INSTALLATION HOOKS
+# ═══════════════════════════════════════════════════════════════
+
+# Create pacman hook to update bootloader when kernel is updated
+if [ "$BOOTLOADER" = "systemd-boot" ] && is_uefi; then
+    info "Creating pacman hook for kernel updates..."
+    
+    mkdir -p /mnt/etc/pacman.d/hooks
+    
+    cat > /mnt/etc/pacman.d/hooks/95-systemd-boot.hook << 'EOF'
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = linux*
+Target = intel-ucode
+Target = amd-ucode
+
+[Action]
+Description = Updating systemd-boot entries...
+When = PostTransaction
+Exec = /usr/bin/sh -c 'for kernel in /boot/vmlinuz-*; do base=$(basename "$kernel" | sed "s/vmlinuz-//"); cp -f "$kernel" /boot/efi/; cp -f "/boot/initramfs-${base}.img" /boot/efi/ 2>/dev/null || true; cp -f "/boot/initramfs-${base}-fallback.img" /boot/efi/ 2>/dev/null || true; done; cp -f /boot/*-ucode.img /boot/efi/ 2>/dev/null || true'
+EOF
+
+    success "Pacman hook created for automatic kernel updates"
+fi
+
+# Verify bootloader installation
+info "Verifying bootloader installation..."
+
+if [ "$BOOTLOADER" = "systemd-boot" ] && is_uefi; then
+    if [ -f /mnt/boot/efi/EFI/systemd/systemd-bootx64.efi ]; then
+        success "systemd-boot EFI binary verified"
+    else
+        warn "systemd-boot EFI binary not found - installation may have issues"
+    fi
+    
+    # List boot entries
+    info "Boot entries created:"
+    ls -la /mnt/boot/efi/loader/entries/ 2>/dev/null || true
+    
+elif [ "$BOOTLOADER" = "grub" ]; then
+    if is_uefi; then
+        if [ -f /mnt/boot/efi/EFI/GRUB/grubx64.efi ]; then
+            success "GRUB EFI binary verified"
+        else
+            warn "GRUB EFI binary not found - installation may have issues"
+        fi
+    else
+        if [ -f /mnt/boot/grub/grub.cfg ]; then
+            success "GRUB configuration verified"
+        else
+            warn "GRUB configuration not found - installation may have issues"
+        fi
+    fi
+fi
+
+printf "\n"
+success "╔════════════════════════════════════════════════════════════╗"
+success "║         BOOTLOADER INSTALLATION COMPLETE!                  ║"
+success "╠════════════════════════════════════════════════════════════╣"
+success "║  Bootloader: $BOOTLOADER"
+success "║  Mode: $(is_uefi && echo 'UEFI' || echo 'BIOS/Legacy')"
+success "║  Kernels: $DETECTED_KERNELS"
+[ -n "$MICROCODE" ] && success "║  Microcode: $MICROCODE"
+success "╚════════════════════════════════════════════════════════════╝"
+printf "\n"
 
 success "Bootloader installation complete!"
