@@ -165,7 +165,7 @@ select_disk() {
     # Filesystem selection
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b10cb  Filesystem Selection%b                    %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b %b  Filesystem Selection%b                    %b%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     printf "    %b󰉋%b  %bFilesystem%b %b[Default: ext4]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
@@ -612,7 +612,7 @@ setup_users() {
     show_header
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰀄  User Setup%b                                %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰀄  User Setup%b                                %b%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
@@ -684,7 +684,7 @@ setup_users() {
     # Swap file configuration
     printf "\n"
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰾴  Swap Configuration%b                        %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰾴  Swap Configuration%b                        %b%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
