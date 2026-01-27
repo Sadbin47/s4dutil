@@ -13,10 +13,8 @@ info "Setting up users..."
 ###################
 if [ -n "$S4D_ROOT_PASSWORD" ]; then
     info "Setting root password..."
-    # Write password to a temp file in chroot to avoid shell escaping issues
-    printf '%s:%s\n' "root" "$S4D_ROOT_PASSWORD" > /mnt/tmp/.passwd_root
-    arch_chroot "chpasswd < /tmp/.passwd_root"
-    rm -f /mnt/tmp/.passwd_root
+    # Use printf piped directly to arch-chroot (bypass our wrapper)
+    printf '%s:%s\n' "root" "$S4D_ROOT_PASSWORD" | arch-chroot /mnt chpasswd
     success "Root password set"
 else
     warn "No root password specified!"
@@ -33,10 +31,8 @@ if [ -n "$S4D_USERNAME" ]; then
     
     # Set user password
     if [ -n "$S4D_USER_PASSWORD" ]; then
-        # Write password to a temp file in chroot to avoid shell escaping issues
-        printf '%s:%s\n' "$S4D_USERNAME" "$S4D_USER_PASSWORD" > /mnt/tmp/.passwd_user
-        arch_chroot "chpasswd < /tmp/.passwd_user"
-        rm -f /mnt/tmp/.passwd_user
+        # Use printf piped directly to arch-chroot (bypass our wrapper)
+        printf '%s:%s\n' "$S4D_USERNAME" "$S4D_USER_PASSWORD" | arch-chroot /mnt chpasswd
         success "User password set"
     fi
     
