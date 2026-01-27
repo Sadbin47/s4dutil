@@ -304,63 +304,43 @@ arch_chroot() {
 #                    MEMORY MANAGEMENT
 # ═══════════════════════════════════════════════════════════════
 
-# Check available memory and warn if low
+# Check available memory and warn if low (returns 0 if OK, 1 if low)
 check_memory() {
     min_ram_mb=${1:-1024}  # Default minimum 1GB
-    total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
     avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
     
-    if [ "$avail_ram" -lt "$min_ram_mb" ]; then
-        warn "Low memory detected: ${avail_ram}MB available (${total_ram}MB total)"
-        return 1
-    fi
-    return 0
+    [ "$avail_ram" -ge "$min_ram_mb" ]
 }
 
-# Create a temporary swap file in RAM disk or root to prevent OOM
+# Create a temporary swap file on the TARGET disk (not tmpfs)
 setup_install_swap() {
-    avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+    total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
     
-    # Only create swap if RAM is low (< 4GB available)
-    if [ "$avail_ram" -lt 4096 ]; then
-        info "Low memory detected (${avail_ram}MB), creating temporary swap..."
+    # Only create swap if total RAM is low (< 4GB)
+    if [ "$total_ram" -lt 4096 ]; then
+        info "Low RAM system (${total_ram}MB), creating temporary swap on target..."
         
-        # Try to create swap file (2GB or half of available space)
-        swap_file="/tmp/install_swap"
+        # Create swap on /mnt (the target disk, not RAM-backed tmpfs)
+        swap_file="/mnt/swapfile_install"
         swap_size=2048  # 2GB
         
-        # Check if there's enough space in /tmp (usually tmpfs)
-        tmp_avail=$(df -m /tmp 2>/dev/null | awk 'NR==2 {print $4}')
-        
-        if [ -n "$tmp_avail" ] && [ "$tmp_avail" -lt 2100 ]; then
-            # Not enough space in /tmp, try /run instead
-            swap_file="/run/install_swap"
-            run_avail=$(df -m /run 2>/dev/null | awk 'NR==2 {print $4}')
-            if [ -n "$run_avail" ] && [ "$run_avail" -lt 2100 ]; then
-                swap_size=1024  # Reduce to 1GB
+        # Make sure /mnt is mounted and has space
+        if mountpoint -q /mnt 2>/dev/null; then
+            mnt_avail=$(df -m /mnt 2>/dev/null | awk 'NR==2 {print $4}')
+            if [ -n "$mnt_avail" ] && [ "$mnt_avail" -gt 2500 ]; then
+                # Create swap file
+                dd if=/dev/zero of="$swap_file" bs=1M count=$swap_size status=progress 2>/dev/null
+                chmod 600 "$swap_file"
+                mkswap "$swap_file" >/dev/null 2>&1
+                if swapon "$swap_file" 2>/dev/null; then
+                    success "Created ${swap_size}MB temporary swap on target disk"
+                    echo "$swap_file"
+                    return 0
+                fi
             fi
         fi
         
-        # Create swap file using fallocate or dd
-        if command -v fallocate >/dev/null 2>&1; then
-            fallocate -l ${swap_size}M "$swap_file" 2>/dev/null || \
-                dd if=/dev/zero of="$swap_file" bs=1M count=$swap_size status=none 2>/dev/null
-        else
-            dd if=/dev/zero of="$swap_file" bs=1M count=$swap_size status=none 2>/dev/null
-        fi
-        
-        if [ -f "$swap_file" ]; then
-            chmod 600 "$swap_file"
-            mkswap "$swap_file" >/dev/null 2>&1
-            swapon "$swap_file" 2>/dev/null && {
-                success "Created ${swap_size}MB temporary swap"
-                echo "$swap_file"  # Return the swap file path
-                return 0
-            }
-        fi
-        
-        warn "Could not create temporary swap - installation may fail on low memory"
-        return 1
+        warn "Could not create swap - continuing without it"
     fi
     return 0
 }
@@ -373,6 +353,23 @@ cleanup_install_swap() {
         rm -f "$swap_file" 2>/dev/null || true
         info "Cleaned up temporary swap"
     fi
+}
+
+# Clean up pacman state for fresh attempt
+cleanup_pacman_state() {
+    target="${1:-/mnt}"
+    
+    # Kill any hanging pacman/pacstrap processes
+    pkill -9 pacman 2>/dev/null || true
+    pkill -9 pacstrap 2>/dev/null || true
+    sleep 1
+    
+    # Remove ALL lock files
+    rm -f /var/lib/pacman/db.lck 2>/dev/null || true
+    rm -f "${target}/var/lib/pacman/db.lck" 2>/dev/null || true
+    
+    # Sync filesystem
+    sync
 }
 
 # Run pacstrap with retry logic
@@ -389,56 +386,37 @@ run_pacstrap_with_retry() {
         
         info "Running pacstrap (attempt $retry_count/$max_retries)..."
         
-        # Kill any hanging pacman processes
-        pkill -9 pacman 2>/dev/null || true
-        pkill -9 pacstrap 2>/dev/null || true
-        sleep 1
+        # Clean up before each attempt
+        cleanup_pacman_state "$target"
         
-        # Remove pacman lock files (critical for retries)
-        rm -f /var/lib/pacman/db.lck 2>/dev/null || true
-        rm -f "${target}/var/lib/pacman/db.lck" 2>/dev/null || true
-        
-        # Clear pacman cache to free memory before retry
+        # On retry, do more aggressive cleanup
         if [ $retry_count -gt 1 ]; then
-            info "Cleaning up before retry..."
+            warn "Retry $retry_count: Performing cleanup..."
             
-            # Clear package cache
-            rm -rf /var/cache/pacman/pkg/* 2>/dev/null || true
+            # Drop filesystem caches to free memory
+            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+            
+            # Clear partial downloads
             rm -rf "${target}/var/cache/pacman/pkg"/* 2>/dev/null || true
             
-            # Sync and drop caches to free memory
-            sync
-            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
             sleep 2
         fi
         
-        # Run pacstrap and capture output
-        pacstrap_log="/tmp/pacstrap_attempt_${retry_count}.log"
-        if pacstrap -K "$target" $packages </dev/null >"$pacstrap_log" 2>&1; then
-            rm -f "$pacstrap_log"
+        # Run pacstrap - show output directly to user
+        if pacstrap -K "$target" $packages </dev/null; then
+            success "Packages installed successfully"
             return 0
         fi
         
-        # Check for specific error types from log
-        if grep -qi "unable to lock\|locked by another" "$pacstrap_log" 2>/dev/null; then
-            warn "Database lock error detected. Cleaning locks..."
-            rm -f /var/lib/pacman/db.lck 2>/dev/null || true
-            rm -f "${target}/var/lib/pacman/db.lck" 2>/dev/null || true
-            pkill -9 pacman 2>/dev/null || true
-            sleep 2
-        elif dmesg 2>/dev/null | tail -20 | grep -qi "oom\|killed process"; then
-            warn "Process was killed (likely OOM). Retrying with memory cleanup..."
-            sync
-            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-            sleep 3
-        else
-            warn "pacstrap failed (attempt $retry_count/$max_retries)"
-            # Show last few lines of error
-            tail -3 "$pacstrap_log" 2>/dev/null || true
+        # pacstrap failed - diagnose
+        warn "pacstrap failed (attempt $retry_count/$max_retries)"
+        
+        # Check for OOM in dmesg
+        if dmesg 2>/dev/null | tail -30 | grep -qi "oom\|killed process\|out of memory"; then
+            error "Process was killed by OOM killer (out of memory)"
         fi
         
-        rm -f "$pacstrap_log"
-        [ $retry_count -lt $max_retries ] && sleep 2
+        [ $retry_count -lt $max_retries ] && sleep 3
     done
     
     error "pacstrap failed after $max_retries attempts"

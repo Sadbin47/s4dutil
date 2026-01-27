@@ -10,17 +10,17 @@ check_internet
 info "Installing base system..."
 
 # ═══════════════════════════════════════════════════════════════
-#                    MEMORY PREPARATION
+#                    SYSTEM INFO
 # ═══════════════════════════════════════════════════════════════
 
-# Check and display memory status
+# Display memory status
 total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
 avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
 info "System memory: ${avail_ram}MB available / ${total_ram}MB total"
 
-# Setup temporary swap if needed (captures swap file path)
+# Setup swap for low-RAM systems (only if total RAM < 4GB)
 TEMP_SWAP_FILE=""
-if ! check_memory 2048; then
+if [ "$total_ram" -lt 4096 ]; then
     TEMP_SWAP_FILE=$(setup_install_swap)
 fi
 
@@ -101,18 +101,14 @@ if command -v reflector >/dev/null 2>&1; then
     reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null || true
 fi
 
-# Drop caches before installation to maximize available memory
-info "Preparing memory for package installation..."
-sync
-echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+# Clean pacman state before starting
+cleanup_pacman_state /mnt
 
-# Run pacstrap with retry logic to handle OOM/network issues
+# Run pacstrap with retry logic
 if ! run_pacstrap_with_retry /mnt $ALL_PACKAGES; then
-    # Cleanup swap before exiting
     cleanup_install_swap "$TEMP_SWAP_FILE"
-    error "Failed to install base packages after multiple attempts"
-    error "This may be due to insufficient memory (RAM: ${total_ram}MB)"
-    error "Try: 1) Use a system with more RAM, 2) Close other applications, 3) Use a swap partition"
+    error "Failed to install base packages"
+    error "Check the log at /tmp/s4dutil_install.log for details"
     exit 1
 fi
 
@@ -122,10 +118,8 @@ fi
 
 info "Installing Liquorix Kernel..."
 
-# Free up memory before kernel installation
-info "Preparing memory for kernel installation..."
-sync
-echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+# Clean state before kernel installation
+cleanup_pacman_state /mnt
 
 # Method 1: Try the official Liquorix installer script
 install_liquorix_script() {
