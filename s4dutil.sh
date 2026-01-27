@@ -852,7 +852,7 @@ run_installation() {
         
         # Live log box
         printf "  %b╭───────────────────────────────────────────────────────────────╮%b\n" "${DIM}" "${RC}"
-        printf "  %b│%b %b󰎚  Live Log%b                                                   %b│%b\n" "${DIM}" "${RC}" "${CYAN}${BOLD}" "${RC}" "${DIM}" "${RC}"
+        printf "  %b│%b %b󰎚   Log's%b                                                   %b│%b\n" "${DIM}" "${RC}" "${CYAN}${BOLD}" "${RC}" "${DIM}" "${RC}"
         printf "  %b├───────────────────────────────────────────────────────────────┤%b\n" "${DIM}" "${RC}"
         
         # Show last 8 lines of log

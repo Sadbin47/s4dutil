@@ -1,5 +1,5 @@
-# Build directory
-build/
+# Unused/archived files
+_unused/
 
 # IDE files
 .vscode/
@@ -7,36 +7,6 @@ build/
 *.swp
 *.swo
 *~
-
-# CMake files
-CMakeCache.txt
-CMakeFiles/
-cmake_install.cmake
-Makefile
-compile_commands.json
-
-# Object files
-*.o
-*.obj
-
-# Executables
-s4dutil
-*.exe
-
-# Libraries
-*.a
-*.so
-*.dylib
-
-# Debug files
-*.dSYM/
-
-# Package files
-*.tar.gz
-*.zip
-
-# macOS
-.DS_Store
 
 # Temporary files
 *.tmp
