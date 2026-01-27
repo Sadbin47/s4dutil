@@ -9,6 +9,21 @@ check_internet
 
 info "Installing base system..."
 
+# ═══════════════════════════════════════════════════════════════
+#                    MEMORY PREPARATION
+# ═══════════════════════════════════════════════════════════════
+
+# Check and display memory status
+total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+info "System memory: ${avail_ram}MB available / ${total_ram}MB total"
+
+# Setup temporary swap if needed (captures swap file path)
+TEMP_SWAP_FILE=""
+if ! check_memory 2048; then
+    TEMP_SWAP_FILE=$(setup_install_swap)
+fi
+
 # Base packages (no kernel - we'll install Liquorix after)
 BASE_PACKAGES="base linux-firmware mkinitcpio"
 
@@ -86,15 +101,31 @@ if command -v reflector >/dev/null 2>&1; then
     reflector --latest 10 --sort rate --save /etc/pacman.d/mirrorlist 2>/dev/null || true
 fi
 
-# Run pacstrap with --noconfirm equivalent (pacstrap doesn't have it but pacman inside does)
-info "Running pacstrap (this may take a while)..."
-pacstrap -K /mnt $ALL_PACKAGES </dev/null
+# Drop caches before installation to maximize available memory
+info "Preparing memory for package installation..."
+sync
+echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+
+# Run pacstrap with retry logic to handle OOM/network issues
+if ! run_pacstrap_with_retry /mnt $ALL_PACKAGES; then
+    # Cleanup swap before exiting
+    cleanup_install_swap "$TEMP_SWAP_FILE"
+    error "Failed to install base packages after multiple attempts"
+    error "This may be due to insufficient memory (RAM: ${total_ram}MB)"
+    error "Try: 1) Use a system with more RAM, 2) Close other applications, 3) Use a swap partition"
+    exit 1
+fi
 
 # ═══════════════════════════════════════════════════════════════
 #                    INSTALL LIQUORIX KERNEL
 # ═══════════════════════════════════════════════════════════════
 
 info "Installing Liquorix Kernel..."
+
+# Free up memory before kernel installation
+info "Preparing memory for kernel installation..."
+sync
+echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
 
 # Method 1: Try the official Liquorix installer script
 install_liquorix_script() {
@@ -155,5 +186,8 @@ fi
 # List installed kernels
 info "Installed kernels:"
 ls -la /mnt/boot/vmlinuz-* 2>/dev/null || warn "No kernel vmlinuz files found"
+
+# Cleanup temporary swap
+cleanup_install_swap "$TEMP_SWAP_FILE"
 
 success "Base system installed successfully!"

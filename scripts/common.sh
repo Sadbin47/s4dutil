@@ -300,6 +300,128 @@ arch_chroot() {
     arch-chroot /mnt /bin/bash -c "$1" </dev/null
 }
 
+# ═══════════════════════════════════════════════════════════════
+#                    MEMORY MANAGEMENT
+# ═══════════════════════════════════════════════════════════════
+
+# Check available memory and warn if low
+check_memory() {
+    min_ram_mb=${1:-1024}  # Default minimum 1GB
+    total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+    avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+    
+    if [ "$avail_ram" -lt "$min_ram_mb" ]; then
+        warn "Low memory detected: ${avail_ram}MB available (${total_ram}MB total)"
+        return 1
+    fi
+    return 0
+}
+
+# Create a temporary swap file in RAM disk or root to prevent OOM
+setup_install_swap() {
+    avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+    
+    # Only create swap if RAM is low (< 4GB available)
+    if [ "$avail_ram" -lt 4096 ]; then
+        info "Low memory detected (${avail_ram}MB), creating temporary swap..."
+        
+        # Try to create swap file (2GB or half of available space)
+        swap_file="/tmp/install_swap"
+        swap_size=2048  # 2GB
+        
+        # Check if there's enough space in /tmp (usually tmpfs)
+        tmp_avail=$(df -m /tmp 2>/dev/null | awk 'NR==2 {print $4}')
+        
+        if [ -n "$tmp_avail" ] && [ "$tmp_avail" -lt 2100 ]; then
+            # Not enough space in /tmp, try /run instead
+            swap_file="/run/install_swap"
+            run_avail=$(df -m /run 2>/dev/null | awk 'NR==2 {print $4}')
+            if [ -n "$run_avail" ] && [ "$run_avail" -lt 2100 ]; then
+                swap_size=1024  # Reduce to 1GB
+            fi
+        fi
+        
+        # Create swap file using fallocate or dd
+        if command -v fallocate >/dev/null 2>&1; then
+            fallocate -l ${swap_size}M "$swap_file" 2>/dev/null || \
+                dd if=/dev/zero of="$swap_file" bs=1M count=$swap_size status=none 2>/dev/null
+        else
+            dd if=/dev/zero of="$swap_file" bs=1M count=$swap_size status=none 2>/dev/null
+        fi
+        
+        if [ -f "$swap_file" ]; then
+            chmod 600 "$swap_file"
+            mkswap "$swap_file" >/dev/null 2>&1
+            swapon "$swap_file" 2>/dev/null && {
+                success "Created ${swap_size}MB temporary swap"
+                echo "$swap_file"  # Return the swap file path
+                return 0
+            }
+        fi
+        
+        warn "Could not create temporary swap - installation may fail on low memory"
+        return 1
+    fi
+    return 0
+}
+
+# Remove temporary swap
+cleanup_install_swap() {
+    swap_file="$1"
+    if [ -n "$swap_file" ] && [ -f "$swap_file" ]; then
+        swapoff "$swap_file" 2>/dev/null || true
+        rm -f "$swap_file" 2>/dev/null || true
+        info "Cleaned up temporary swap"
+    fi
+}
+
+# Run pacstrap with retry logic
+run_pacstrap_with_retry() {
+    target="$1"
+    shift
+    packages="$*"
+    
+    max_retries=3
+    retry_count=0
+    
+    while [ $retry_count -lt $max_retries ]; do
+        retry_count=$((retry_count + 1))
+        
+        info "Running pacstrap (attempt $retry_count/$max_retries)..."
+        
+        # Clear pacman cache to free memory before retry
+        if [ $retry_count -gt 1 ]; then
+            info "Clearing package cache before retry..."
+            rm -rf /var/cache/pacman/pkg/* 2>/dev/null || true
+            sync
+            # Drop caches to free memory
+            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+            sleep 2
+        fi
+        
+        # Run pacstrap
+        if pacstrap -K "$target" $packages </dev/null; then
+            return 0
+        fi
+        
+        # Check if it was an OOM kill
+        if dmesg 2>/dev/null | tail -20 | grep -qi "oom\|killed process"; then
+            warn "Process was killed (likely OOM). Retrying with memory cleanup..."
+            # Aggressive memory cleanup
+            sync
+            echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+            sleep 3
+        else
+            warn "pacstrap failed (attempt $retry_count/$max_retries)"
+        fi
+        
+        [ $retry_count -lt $max_retries ] && sleep 2
+    done
+    
+    error "pacstrap failed after $max_retries attempts"
+    return 1
+}
+
 # Get partition suffix (handles nvme disks)
 get_part_suffix() {
     disk="$1"

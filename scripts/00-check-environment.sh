@@ -18,6 +18,20 @@ success "Running on Arch Linux"
 check_internet
 success "Internet connection available"
 
+# Check available RAM
+total_ram=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
+avail_ram=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+
+if [ "$total_ram" -lt 1024 ]; then
+    error "Insufficient RAM: ${total_ram}MB total (minimum 1GB required)"
+    exit 1
+elif [ "$total_ram" -lt 2048 ]; then
+    warn "Low RAM detected: ${total_ram}MB (2GB+ recommended)"
+    warn "Installation may be slow or fail. Temporary swap will be created."
+else
+    success "RAM: ${total_ram}MB total, ${avail_ram}MB available"
+fi
+
 # Check boot mode
 if is_uefi; then
     success "UEFI boot mode detected"
