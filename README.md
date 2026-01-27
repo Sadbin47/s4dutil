@@ -2,11 +2,10 @@
 
 A lightweight, interactive Arch Linux installer. No compilation needed - works directly on Live ISO!
 
-##  Quick Start
-
 ## ⚠️ Disclaimer ⚠️
-
 This tool will **format and partition your disk**. **Make sure you have backups of important data** before using this installer.
+
+##  Quick Start
 
 Boot into Arch Linux Live ISO, then run:
 
