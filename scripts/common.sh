@@ -389,32 +389,55 @@ run_pacstrap_with_retry() {
         
         info "Running pacstrap (attempt $retry_count/$max_retries)..."
         
+        # Kill any hanging pacman processes
+        pkill -9 pacman 2>/dev/null || true
+        pkill -9 pacstrap 2>/dev/null || true
+        sleep 1
+        
+        # Remove pacman lock files (critical for retries)
+        rm -f /var/lib/pacman/db.lck 2>/dev/null || true
+        rm -f "${target}/var/lib/pacman/db.lck" 2>/dev/null || true
+        
         # Clear pacman cache to free memory before retry
         if [ $retry_count -gt 1 ]; then
-            info "Clearing package cache before retry..."
+            info "Cleaning up before retry..."
+            
+            # Clear package cache
             rm -rf /var/cache/pacman/pkg/* 2>/dev/null || true
+            rm -rf "${target}/var/cache/pacman/pkg"/* 2>/dev/null || true
+            
+            # Sync and drop caches to free memory
             sync
-            # Drop caches to free memory
             echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
             sleep 2
         fi
         
-        # Run pacstrap
-        if pacstrap -K "$target" $packages </dev/null; then
+        # Run pacstrap and capture output
+        pacstrap_log="/tmp/pacstrap_attempt_${retry_count}.log"
+        if pacstrap -K "$target" $packages </dev/null >"$pacstrap_log" 2>&1; then
+            rm -f "$pacstrap_log"
             return 0
         fi
         
-        # Check if it was an OOM kill
-        if dmesg 2>/dev/null | tail -20 | grep -qi "oom\|killed process"; then
+        # Check for specific error types from log
+        if grep -qi "unable to lock\|locked by another" "$pacstrap_log" 2>/dev/null; then
+            warn "Database lock error detected. Cleaning locks..."
+            rm -f /var/lib/pacman/db.lck 2>/dev/null || true
+            rm -f "${target}/var/lib/pacman/db.lck" 2>/dev/null || true
+            pkill -9 pacman 2>/dev/null || true
+            sleep 2
+        elif dmesg 2>/dev/null | tail -20 | grep -qi "oom\|killed process"; then
             warn "Process was killed (likely OOM). Retrying with memory cleanup..."
-            # Aggressive memory cleanup
             sync
             echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
             sleep 3
         else
             warn "pacstrap failed (attempt $retry_count/$max_retries)"
+            # Show last few lines of error
+            tail -3 "$pacstrap_log" 2>/dev/null || true
         fi
         
+        rm -f "$pacstrap_log"
         [ $retry_count -lt $max_retries ] && sleep 2
     done
     
