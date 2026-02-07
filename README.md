@@ -1,9 +1,7 @@
 # S4DUtil - Arch Linux Installer
 
 A lightweight, interactive Arch Linux installer. No compilation needed - works directly on Live ISO!
-
-https://github.com/user-attachments/assets/ac8bba45-7650-4aa5-9042-a158290c318c
-
+![Image](https://github.com/user-attachments/assets/11b4d499-69e8-43b9-adb5-73883a466666)
 ## ⚠️ Disclaimer ⚠️
 This tool will **format and partition your disk**. **Make sure you have backups of important data** before using this installer.
 
