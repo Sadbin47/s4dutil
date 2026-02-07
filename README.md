@@ -2,6 +2,10 @@
 
 A lightweight, interactive Arch Linux installer. No compilation needed - works directly on Live ISO!
 
+<div align="center">
+  <img src="https://s12.gifyu.com/images/bkBPF.gif" alt="Animation" width="100%" />
+</div>
+
 ## ⚠️ Disclaimer ⚠️
 This tool will **format and partition your disk**. **Make sure you have backups of important data** before using this installer.
 
