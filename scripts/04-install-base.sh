@@ -116,7 +116,7 @@ fi
 #                    INSTALL SELECTED KERNEL
 # ═══════════════════════════════════════════════════════════════
 
-KERNEL="${S4D_KERNEL:-linux-lqx}"
+KERNEL="${S4D_KERNEL:-linux}"
 info "Selected kernel: $KERNEL"
 
 # Clean state before kernel installation

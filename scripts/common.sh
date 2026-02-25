@@ -38,12 +38,13 @@ BG_BLUE='\033[44m'
 BG_PURPLE='\033[45m'
 BG_CYAN='\033[46m'
 
-# Gradient-like colors (256 color mode)
-GRAD1='\033[38;5;39m'   # Light blue
-GRAD2='\033[38;5;45m'   # Cyan
-GRAD3='\033[38;5;51m'   # Light cyan
-GRAD4='\033[38;5;87m'   # Pale cyan
-GRAD5='\033[38;5;123m'  # Aqua
+# Gradient colors (24-bit true color — cyan → purple)
+GRAD1='\033[38;2;0;255;255m'    # Cyan
+GRAD2='\033[38;2;0;210;255m'    # Sky blue
+GRAD3='\033[38;2;0;170;255m'    # Blue
+GRAD4='\033[38;2;60;130;255m'   # Indigo
+GRAD5='\033[38;2;120;90;255m'   # Violet
+GRAD6='\033[38;2;170;60;255m'   # Purple
 
 # Accent colors
 ACCENT1='\033[38;5;213m'  # Pink

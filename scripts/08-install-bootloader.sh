@@ -138,7 +138,7 @@ install_systemd_boot() {
     info "Creating loader configuration..."
     
     # Determine default kernel (prefer user-selected, then Liquorix, then others)
-    SELECTED_KERNEL="${S4D_KERNEL:-linux-lqx}"
+    SELECTED_KERNEL="${S4D_KERNEL:-linux}"
     DEFAULT_ENTRY="arch-${SELECTED_KERNEL}.conf"
     # Verify the selected kernel was actually installed, otherwise pick what's available
     if ! echo "$DETECTED_KERNELS" | grep -qw "$SELECTED_KERNEL"; then

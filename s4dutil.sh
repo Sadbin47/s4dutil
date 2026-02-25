@@ -19,21 +19,20 @@ USERNAME=""
 USER_PASSWORD=""
 BOOTLOADER="grub"
 FILESYSTEM="ext4"
-KERNEL="linux-lqx"
+KERNEL="linux"
 
 # Display header with gradient effect
 show_header() {
     clear
     printf "\n"
-    printf "  %b╔═══════════════════════════════════════════════════════════════╗%b\n" "${PURPLE}" "${RC}"
-    printf "  %b║%b   %b____  _  _   ____  _   _ _   _ _%b                            %b║%b\n" "${PURPLE}" "${RC}" "${GRAD1}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b  %b/ ___|| || | |  _ \\| | | | |_(_) |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD2}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b  %b\\___ \\| || |_| | | | | | | __| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD3}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b║%b           %b*  Arch Linux Installer%b %bv1.0.0%b                      %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-    printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
+    printf "    %b███████╗  ██╗  ██╗  ██████╗  ██╗   ██╗ ████████╗ ██╗ ██╗%b\n" "${GRAD1}" "${RC}"
+    printf "    %b██╔════╝  ██║  ██║  ██╔══██╗ ██║   ██║ ╚══██╔══╝ ██║ ██║%b\n" "${GRAD2}" "${RC}"
+    printf "    %b███████╗  ███████║  ██║  ██║ ██║   ██║    ██║    ██║ ██║%b\n" "${GRAD3}" "${RC}"
+    printf "    %b╚════██║  ╚════██║  ██║  ██║ ██║   ██║    ██║    ██║ ██║%b\n" "${GRAD4}" "${RC}"
+    printf "    %b███████║       ██║  ██████╔╝ ╚██████╔╝    ██║    ██║ ██████╗%b\n" "${GRAD5}" "${RC}"
+    printf "    %b╚══════╝       ╚═╝  ╚═════╝   ╚═════╝     ╚═╝    ╚═╝ ╚═════╝%b\n" "${GRAD6}" "${RC}"
+    printf "\n"
+    printf "    %bArch Linux Installer v1.0%b\n" "${DIM}" "${RC}"
     printf "\n"
 }
 
@@ -181,11 +180,48 @@ select_disk() {
     esac
     export S4D_FILESYSTEM="$FILESYSTEM"
     ok "Filesystem: $FILESYSTEM"
+    
+    # Swap file configuration
+    printf "\n"
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰾴  Swap Configuration%b                        %b%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "\n"
+    
+    # Get RAM size in GB for suggestion
+    RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
+    SUGGESTED_SWAP=$((RAM_GB > 0 ? RAM_GB : 4))
+    
+    printf "    %b󰾴%b  %bEnable swap file?%b %b[Y/n]%b: " "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    read -r enable_swap
+    
+    case "$enable_swap" in
+        [Nn]*)
+            SWAP_SIZE=0
+            info "Swap disabled"
+            ;;
+        *)
+            printf "\n"
+            printf "    %b󰾴%b  %bSwap File Size (GB)%b %b[Default: %d GB]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${GREEN}${BOLD}" "$SUGGESTED_SWAP" "${RC}"
+            printf "       %bBased on your RAM: %s GB%b\n" "${DIM}" "$RAM_GB" "${RC}"
+            printf "       %b➜%b " "${CYAN}" "${RC}"
+            read -r swap_input
+            
+            if [ -n "$swap_input" ] && echo "$swap_input" | grep -qE '^[0-9]+$'; then
+                SWAP_SIZE="$swap_input"
+            else
+                SWAP_SIZE="$SUGGESTED_SWAP"
+            fi
+            ok "Swap size: ${SWAP_SIZE} GB"
+            ;;
+    esac
+    export S4D_SWAP_SIZE="$SWAP_SIZE"
+    
     sleep 1
 }
 
-# Configure system settings
-configure_system() {
+# Kernel and Bootloader selection
+select_kernel_bootloader() {
     show_header
     
     # Detect UEFI mode
@@ -196,15 +232,67 @@ configure_system() {
     fi
     
     printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰒓  System Configuration%b                     %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰌽  Kernel & Bootloader%b                       %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
-    # Hostname
-    printf "    %b󰇄%b  %bHostname%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$HOSTNAME" "${RC}"
-    printf "       %b➜%b " "${CYAN}" "${RC}"
-    read -r input
-    [ -n "$input" ] && HOSTNAME="$input"
+    # Kernel selection
+    select_kernel
+    
+    # Bootloader selection
+    printf "\n"
+    printf "    %b󰋊%b  %bBootloader Selection%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}"
+    printf "\n"
+    printf "      %b1%b) %bGRUB%b              %b(feature-rich, dual-boot support)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    
+    if [ "$IS_UEFI" = "1" ]; then
+        printf "      %b2%b) %bsystemd-boot%b      %b(minimal, fast, modern - UEFI only)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    else
+        printf "      %b2%b) %bsystemd-boot%b      %b(requires UEFI - not available)%b\n" "${DIM}" "${RC}" "${DIM}" "${RC}" "${RED}${DIM}" "${RC}"
+    fi
+    
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r boot_choice
+    
+    case "$boot_choice" in
+        2)
+            if [ "$IS_UEFI" = "1" ]; then
+                BOOTLOADER="systemd-boot"
+                ok "Bootloader: systemd-boot"
+            else
+                warn "systemd-boot requires UEFI! Defaulting to GRUB."
+                BOOTLOADER="grub"
+                ok "Bootloader: GRUB (BIOS mode)"
+            fi
+            ;;
+        *)
+            BOOTLOADER="grub"
+            if [ "$IS_UEFI" = "1" ]; then
+                ok "Bootloader: GRUB (UEFI)"
+            else
+                ok "Bootloader: GRUB (BIOS)"
+            fi
+            ;;
+    esac
+    
+    # Export variables
+    export S4D_BOOTLOADER="$BOOTLOADER"
+    export S4D_IS_UEFI="$IS_UEFI"
+    export S4D_KERNEL="$KERNEL"
+    
+    printf "\n"
+    ok "Kernel & Bootloader configured!"
+    sleep 1
+}
+
+# Configure system settings
+configure_system() {
+    show_header
+    
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰒓  System Configuration%b                     %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "\n"
     
     # Timezone - try to auto-detect first
     printf "\n"
@@ -281,55 +369,10 @@ configure_system() {
         *) KEYMAP="us" ;;
     esac
     
-    # Kernel selection
-    select_kernel
-
-    # Bootloader selection
-    printf "\n"
-    printf "    %b󰋊%b  %bBootloader Selection%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}"
-    printf "\n"
-    printf "      %b1%b) %bGRUB%b              %b(feature-rich, dual-boot support)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    
-    if [ "$IS_UEFI" = "1" ]; then
-        # UEFI mode - both options fully available
-        printf "      %b2%b) %bsystemd-boot%b      %b(minimal, fast, modern - UEFI only)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    else
-        # BIOS mode - show systemd-boot as unavailable
-        printf "      %b2%b) %bsystemd-boot%b      %b(requires UEFI - not available)%b\n" "${DIM}" "${RC}" "${DIM}" "${RC}" "${RED}${DIM}" "${RC}"
-    fi
-    
-    printf "\n       %b➜%b " "${CYAN}" "${RC}"
-    read -r boot_choice
-    
-    case "$boot_choice" in
-        2)
-            if [ "$IS_UEFI" = "1" ]; then
-                BOOTLOADER="systemd-boot"
-                ok "Bootloader: systemd-boot"
-            else
-                warn "systemd-boot requires UEFI! Defaulting to GRUB."
-                BOOTLOADER="grub"
-                ok "Bootloader: GRUB (BIOS mode)"
-            fi
-            ;;
-        *)
-            BOOTLOADER="grub"
-            if [ "$IS_UEFI" = "1" ]; then
-                ok "Bootloader: GRUB (UEFI)"
-            else
-                ok "Bootloader: GRUB (BIOS)"
-            fi
-            ;;
-    esac
-    
     # Export variables
-    export S4D_HOSTNAME="$HOSTNAME"
     export S4D_TIMEZONE="$TIMEZONE"
     export S4D_LOCALE="$LOCALE"
     export S4D_KEYMAP="$KEYMAP"
-    export S4D_BOOTLOADER="$BOOTLOADER"
-    export S4D_IS_UEFI="$IS_UEFI"
-    export S4D_KERNEL="$KERNEL"
     
     printf "\n"
     ok "Configuration saved!"
@@ -338,15 +381,10 @@ configure_system() {
 
 # Select kernel
 select_kernel() {
+    printf "    %b󰌽%b  %bChoose your Linux kernel%b %b[Default: linux]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
     printf "\n"
-    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰌽  Kernel Selection%b                          %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
-    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
-    printf "\n"
-    printf "    %b󰌽%b  %bChoose your Linux kernel%b %b[Default: linux-lqx]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
-    printf "\n"
-    printf "      %b1%b) %blinux-lqx%b         %b(Liquorix — low-latency, gaming, A/V)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    printf "      %b2%b) %blinux%b              %b(Stable — default latest kernel)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b1%b) %blinux%b              %b(Stable — default latest kernel)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %blinux-lqx%b          %b(Liquorix — low-latency, gaming, A/V)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b3%b) %blinux-lts%b          %b(Long Term Support — maximum stability)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b4%b) %blinux-zen%b          %b(Zen — optimized for desktop responsiveness)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
     printf "      %b5%b) %blinux-hardened%b     %b(Hardened — security-focused patches)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
@@ -355,19 +393,19 @@ select_kernel() {
     read -r kernel_choice
 
     case "$kernel_choice" in
-        1) KERNEL="linux-lqx" ;;
-        2) KERNEL="linux" ;;
+        1) KERNEL="linux" ;;
+        2) KERNEL="linux-lqx" ;;
         3) KERNEL="linux-lts" ;;
         4) KERNEL="linux-zen" ;;
         5) KERNEL="linux-hardened" ;;
         6) KERNEL="linux-rt" ;;
-        *) KERNEL="linux-lqx" ;;
+        *) KERNEL="linux" ;;
     esac
 
     # Resolve display name for confirmation
     case "$KERNEL" in
-        linux-lqx) _kname="Liquorix" ;;
         linux)     _kname="Linux (Stable)" ;;
+        linux-lqx) _kname="Liquorix" ;;
         linux-lts) _kname="Linux LTS" ;;
         linux-zen) _kname="Linux Zen" ;;
         linux-hardened) _kname="Linux Hardened" ;;
@@ -662,6 +700,14 @@ setup_users() {
     printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
     printf "\n"
     
+    # Hostname
+    printf "    %b󰇄%b  %bHostname%b %b[Default: %s]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "$HOSTNAME" "${RC}"
+    printf "       %b➜%b " "${CYAN}" "${RC}"
+    read -r input
+    [ -n "$input" ] && HOSTNAME="$input"
+    ok "Hostname: $HOSTNAME"
+    printf "\n"
+    
     # Root password
     printf "    %b󰌋%b  %bRoot Password%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}"
     while true; do
@@ -727,45 +773,10 @@ setup_users() {
             ;;
     esac
     
-    # Swap file configuration
-    printf "\n"
-    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
-    printf "  %b│%b %b󰾴  Swap Configuration%b                        %b%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
-    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
-    printf "\n"
-    
-    # Get RAM size in GB for suggestion
-    RAM_GB=$(awk '/MemTotal/ {printf "%.0f", $2/1024/1024}' /proc/meminfo)
-    SUGGESTED_SWAP=$((RAM_GB > 0 ? RAM_GB : 4))
-    
-    printf "    %b󰾴%b  %bEnable swap file?%b %b[Y/n]%b: " "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
-    read -r enable_swap
-    
-    case "$enable_swap" in
-        [Nn]*)
-            SWAP_SIZE=0
-            info "Swap disabled"
-            ;;
-        *)
-            printf "\n"
-            printf "    %b󰾴%b  %bSwap File Size (GB)%b %b[Default: %d GB]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${GREEN}${BOLD}" "$SUGGESTED_SWAP" "${RC}"
-            printf "       %bBased on your RAM: %s GB%b\n" "${DIM}" "$RAM_GB" "${RC}"
-            printf "       %b➜%b " "${CYAN}" "${RC}"
-            read -r swap_input
-            
-            if [ -n "$swap_input" ] && echo "$swap_input" | grep -qE '^[0-9]+$'; then
-                SWAP_SIZE="$swap_input"
-            else
-                SWAP_SIZE="$SUGGESTED_SWAP"
-            fi
-            ok "Swap size: ${SWAP_SIZE} GB"
-            ;;
-    esac
-    
+    export S4D_HOSTNAME="$HOSTNAME"
     export S4D_ROOT_PASSWORD="$ROOT_PASSWORD"
     export S4D_USERNAME="$USERNAME"
     export S4D_USER_PASSWORD="$USER_PASSWORD"
-    export S4D_SWAP_SIZE="$SWAP_SIZE"
     
     sleep 1
 }
@@ -862,15 +873,14 @@ run_installation() {
     redraw_screen() {
         clear
         printf "\n"
-        printf "  %b╔═══════════════════════════════════════════════════════════════╗%b\n" "${PURPLE}" "${RC}"
-        printf "  %b║%b   %b____  _  _   ____  _   _ _   _ _%b                            %b║%b\n" "${PURPLE}" "${RC}" "${GRAD1}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b  %b/ ___|| || | |  _ \\| | | | |_(_) |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD2}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b  %b\\___ \\| || |_| | | | | | | __| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD3}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b   %b___) |__   _| |_| | |_| | |_| | |%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD4}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b  %b|____/   |_| |____/ \\___/ \\__|_|_|%b                           %b║%b\n" "${PURPLE}" "${RC}" "${GRAD5}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b                                                               %b║%b\n" "${PURPLE}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b║%b           %b*  Arch Linux Installer%b %bv1.0.0%b                      %b║%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}" "${YELLOW}${BOLD}" "${RC}" "${PURPLE}" "${RC}"
-        printf "  %b╚═══════════════════════════════════════════════════════════════╝%b\n" "${PURPLE}" "${RC}"
+        printf "    %b███████╗  ██╗  ██╗  ██████╗  ██╗   ██╗ ████████╗ ██╗ ██╗%b\n" "${GRAD1}" "${RC}"
+        printf "    %b██╔════╝  ██║  ██║  ██╔══██╗ ██║   ██║ ╚══██╔══╝ ██║ ██║%b\n" "${GRAD2}" "${RC}"
+        printf "    %b███████╗  ███████║  ██║  ██║ ██║   ██║    ██║    ██║ ██║%b\n" "${GRAD3}" "${RC}"
+        printf "    %b╚════██║  ╚════██║  ██║  ██║ ██║   ██║    ██║    ██║ ██║%b\n" "${GRAD4}" "${RC}"
+        printf "    %b███████║       ██║  ██████╔╝ ╚██████╔╝    ██║    ██║ ██████╗%b\n" "${GRAD5}" "${RC}"
+        printf "    %b╚══════╝       ╚═╝  ╚═════╝   ╚═════╝     ╚═╝    ╚═╝ ╚═════╝%b\n" "${GRAD6}" "${RC}"
+        printf "\n"
+        printf "    %bArch Linux Installer v1.0%b\n" "${DIM}" "${RC}"
         printf "\n"
         
         printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
@@ -992,6 +1002,7 @@ main_menu() {
         case "$choice" in
             1)
                 if select_disk; then
+                    select_kernel_bootloader
                     configure_system
                     setup_users
                     if show_summary; then
