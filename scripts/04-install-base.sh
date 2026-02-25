@@ -113,68 +113,99 @@ if ! run_pacstrap_with_retry /mnt $ALL_PACKAGES; then
 fi
 
 # ═══════════════════════════════════════════════════════════════
-#                    INSTALL LIQUORIX KERNEL
+#                    INSTALL SELECTED KERNEL
 # ═══════════════════════════════════════════════════════════════
 
-info "Installing Liquorix Kernel..."
+KERNEL="${S4D_KERNEL:-linux-lqx}"
+info "Selected kernel: $KERNEL"
 
 # Clean state before kernel installation
 cleanup_pacman_state /mnt
 
-# Method 1: Try the official Liquorix installer script
-install_liquorix_script() {
-    arch_chroot "curl -fsSL 'https://liquorix.net/install-liquorix.sh' | bash -s -- --noconfirm" </dev/null
+# ───────────────────────────────────────────────────────────────
+#  Kernel-specific installation helpers
+# ───────────────────────────────────────────────────────────────
+
+# Install standard repo kernels (linux, linux-lts, linux-zen, linux-hardened, linux-rt)
+install_repo_kernel() {
+    _kpkg="$1"
+    info "Installing ${_kpkg} and ${_kpkg}-headers from official repos..."
+    arch_chroot "pacman -S --noconfirm ${_kpkg} ${_kpkg}-headers" </dev/null
 }
 
-# Method 2: Install from chaotic-aur (has pre-built Liquorix packages)
-install_liquorix_chaotic() {
-    info "Setting up Chaotic-AUR for Liquorix kernel..."
-    
-    # Add chaotic-aur keyring and mirrorlist
-    arch_chroot "pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com" </dev/null
-    arch_chroot "pacman-key --lsign-key 3056513887B78AEB" </dev/null
-    arch_chroot "pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'" </dev/null
-    arch_chroot "pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'" </dev/null
-    
-    # Add chaotic-aur to pacman.conf
-    if ! grep -q "chaotic-aur" /mnt/etc/pacman.conf; then
-        cat >> /mnt/etc/pacman.conf << 'EOF'
+# Liquorix requires a third-party repo — try multiple methods
+install_liquorix_kernel() {
+    # Method 1: Try the official Liquorix installer script
+    install_liquorix_script() {
+        arch_chroot "curl -fsSL 'https://liquorix.net/install-liquorix.sh' | bash -s -- --noconfirm" </dev/null
+    }
+
+    # Method 2: Install from chaotic-aur (has pre-built Liquorix packages)
+    install_liquorix_chaotic() {
+        info "Setting up Chaotic-AUR for Liquorix kernel..."
+
+        # Add chaotic-aur keyring and mirrorlist
+        arch_chroot "pacman-key --recv-key 3056513887B78AEB --keyserver keyserver.ubuntu.com" </dev/null
+        arch_chroot "pacman-key --lsign-key 3056513887B78AEB" </dev/null
+        arch_chroot "pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-keyring.pkg.tar.zst'" </dev/null
+        arch_chroot "pacman -U --noconfirm 'https://cdn-mirror.chaotic.cx/chaotic-aur/chaotic-mirrorlist.pkg.tar.zst'" </dev/null
+
+        # Add chaotic-aur to pacman.conf
+        if ! grep -q "chaotic-aur" /mnt/etc/pacman.conf; then
+            cat >> /mnt/etc/pacman.conf << 'EOF'
 
 # Chaotic-AUR repository
 [chaotic-aur]
 Include = /etc/pacman.d/chaotic-mirrorlist
 EOF
+        fi
+
+        # Sync and install
+        arch_chroot "pacman -Sy --noconfirm linux-lqx linux-lqx-headers" </dev/null
+    }
+
+    if install_liquorix_script 2>/dev/null; then
+        success "Liquorix kernel installed via official script"
+    elif install_liquorix_chaotic 2>/dev/null; then
+        success "Liquorix kernel installed via Chaotic-AUR"
+    else
+        warn "Could not install Liquorix kernel, falling back to standard Linux kernel..."
+        install_repo_kernel "linux"
+        success "Standard Linux kernel installed as fallback"
     fi
-    
-    # Sync and install
-    arch_chroot "pacman -Sy --noconfirm linux-lqx linux-lqx-headers" </dev/null
 }
 
-# Method 3: Install standard Linux kernel as fallback
-install_linux_fallback() {
-    warn "Installing standard Linux kernel as fallback..."
-    arch_chroot "pacman -S --noconfirm linux linux-headers" </dev/null
-}
+# ───────────────────────────────────────────────────────────────
+#  Dispatch to the right installer
+# ───────────────────────────────────────────────────────────────
 
-# Try installation methods in order
-if install_liquorix_script 2>/dev/null; then
-    success "Liquorix kernel installed via official script"
-elif install_liquorix_chaotic 2>/dev/null; then
-    success "Liquorix kernel installed via Chaotic-AUR"
-else
-    warn "Could not install Liquorix kernel, installing standard Linux kernel..."
-    install_linux_fallback
-    success "Standard Linux kernel installed as fallback"
-fi
+case "$KERNEL" in
+    linux-lqx)
+        install_liquorix_kernel
+        ;;
+    linux|linux-lts|linux-zen|linux-hardened|linux-rt)
+        if ! install_repo_kernel "$KERNEL"; then
+            warn "Failed to install $KERNEL, falling back to standard linux kernel..."
+            install_repo_kernel "linux"
+        fi
+        ;;
+    *)
+        warn "Unknown kernel '$KERNEL', installing standard linux kernel..."
+        install_repo_kernel "linux"
+        ;;
+esac
 
 # Verify kernel installation
 info "Verifying kernel installation..."
-if [ -f /mnt/boot/vmlinuz-linux-lqx ]; then
-    success "Liquorix kernel verified: /mnt/boot/vmlinuz-linux-lqx"
-elif [ -f /mnt/boot/vmlinuz-linux ]; then
-    success "Standard kernel verified: /mnt/boot/vmlinuz-linux"
-else
-    warn "No kernel found in /mnt/boot - this may cause boot issues!"
+FOUND_KERNEL=0
+for vmlinuz in /mnt/boot/vmlinuz-*; do
+    if [ -f "$vmlinuz" ]; then
+        success "Kernel verified: $vmlinuz"
+        FOUND_KERNEL=1
+    fi
+done
+if [ "$FOUND_KERNEL" = "0" ]; then
+    warn "No kernel found in /mnt/boot — this may cause boot issues!"
 fi
 
 # List installed kernels

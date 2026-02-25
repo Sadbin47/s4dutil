@@ -19,6 +19,7 @@ USERNAME=""
 USER_PASSWORD=""
 BOOTLOADER="grub"
 FILESYSTEM="ext4"
+KERNEL="linux-lqx"
 
 # Display header with gradient effect
 show_header() {
@@ -280,6 +281,9 @@ configure_system() {
         *) KEYMAP="us" ;;
     esac
     
+    # Kernel selection
+    select_kernel
+
     # Bootloader selection
     printf "\n"
     printf "    %b󰋊%b  %bBootloader Selection%b\n" "${PURPLE}" "${RC}" "${WHITE}${BOLD}" "${RC}"
@@ -325,10 +329,52 @@ configure_system() {
     export S4D_KEYMAP="$KEYMAP"
     export S4D_BOOTLOADER="$BOOTLOADER"
     export S4D_IS_UEFI="$IS_UEFI"
+    export S4D_KERNEL="$KERNEL"
     
     printf "\n"
     ok "Configuration saved!"
     sleep 1
+}
+
+# Select kernel
+select_kernel() {
+    printf "\n"
+    printf "  %b╭─────────────────────────────────────────────╮%b\n" "${CYAN}" "${RC}"
+    printf "  %b│%b %b󰌽  Kernel Selection%b                          %b│%b\n" "${CYAN}" "${RC}" "${BOLD}${WHITE}" "${RC}" "${CYAN}" "${RC}"
+    printf "  %b╰─────────────────────────────────────────────╯%b\n" "${CYAN}" "${RC}"
+    printf "\n"
+    printf "    %b󰌽%b  %bChoose your Linux kernel%b %b[Default: linux-lqx]%b\n" "${PURPLE}" "${RC}" "${WHITE}" "${RC}" "${DIM}${CYAN}" "${RC}"
+    printf "\n"
+    printf "      %b1%b) %blinux-lqx%b         %b(Liquorix — low-latency, gaming, A/V)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b2%b) %blinux%b              %b(Stable — default latest kernel)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b3%b) %blinux-lts%b          %b(Long Term Support — maximum stability)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b4%b) %blinux-zen%b          %b(Zen — optimized for desktop responsiveness)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b5%b) %blinux-hardened%b     %b(Hardened — security-focused patches)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "      %b6%b) %blinux-rt%b           %b(Realtime — maximum preemption)%b\n" "${CYAN}${BOLD}" "${RC}" "${WHITE}" "${RC}" "${DIM}" "${RC}"
+    printf "\n       %b➜%b " "${CYAN}" "${RC}"
+    read -r kernel_choice
+
+    case "$kernel_choice" in
+        1) KERNEL="linux-lqx" ;;
+        2) KERNEL="linux" ;;
+        3) KERNEL="linux-lts" ;;
+        4) KERNEL="linux-zen" ;;
+        5) KERNEL="linux-hardened" ;;
+        6) KERNEL="linux-rt" ;;
+        *) KERNEL="linux-lqx" ;;
+    esac
+
+    # Resolve display name for confirmation
+    case "$KERNEL" in
+        linux-lqx) _kname="Liquorix" ;;
+        linux)     _kname="Linux (Stable)" ;;
+        linux-lts) _kname="Linux LTS" ;;
+        linux-zen) _kname="Linux Zen" ;;
+        linux-hardened) _kname="Linux Hardened" ;;
+        linux-rt)  _kname="Linux Realtime" ;;
+        *)         _kname="$KERNEL" ;;
+    esac
+    ok "Kernel: $_kname ($KERNEL)"
 }
 
 # Select timezone from list
@@ -738,7 +784,17 @@ show_summary() {
     printf "    %b󰍛%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Boot Mode" "${WHITE}" "$([ "$IS_UEFI" = "1" ] && echo "UEFI" || echo "BIOS")" "${RC}"
     printf "    %b󰋊%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Bootloader" "${WHITE}" "$BOOTLOADER" "${RC}"
     printf "    %b󰉋%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Filesystem" "${WHITE}" "$FILESYSTEM" "${RC}"
-    printf "    %b󰌽%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Kernel" "${YELLOW}${BOLD}" "Liquorix" "${RC}"
+    # Resolve kernel display name
+    case "$KERNEL" in
+        linux-lqx) KERNEL_DISPLAY="Liquorix" ;;
+        linux)     KERNEL_DISPLAY="Linux (Stable)" ;;
+        linux-lts) KERNEL_DISPLAY="Linux LTS" ;;
+        linux-zen) KERNEL_DISPLAY="Linux Zen" ;;
+        linux-hardened) KERNEL_DISPLAY="Linux Hardened" ;;
+        linux-rt)  KERNEL_DISPLAY="Linux Realtime" ;;
+        *)         KERNEL_DISPLAY="$KERNEL" ;;
+    esac
+    printf "    %b󰌽%b  %-18s %b%s%b\n" "${PURPLE}" "${RC}" "Kernel" "${YELLOW}${BOLD}" "$KERNEL_DISPLAY" "${RC}"
     printf "\n"
     draw_line 47
     printf "\n"

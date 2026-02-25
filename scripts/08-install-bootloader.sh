@@ -50,10 +50,15 @@ detect_kernels() {
         info "Detected Linux Hardened kernel"
     fi
     
+    # Check for Realtime kernel
+    if [ -f /mnt/boot/vmlinuz-linux-rt ]; then
+        KERNELS="linux-rt $KERNELS"
+        info "Detected Linux Realtime kernel"
+    fi
+    
     if [ -z "$KERNELS" ]; then
         warn "No kernel detected! Installation may have failed."
-        # Fallback to linux-lqx as we installed it
-        KERNELS="linux-lqx"
+        KERNELS="${S4D_KERNEL:-linux}"
     fi
     
     echo "$KERNELS"
@@ -132,12 +137,16 @@ install_systemd_boot() {
     # Create loader.conf
     info "Creating loader configuration..."
     
-    # Determine default kernel (prefer Liquorix)
-    DEFAULT_ENTRY="arch-linux-lqx.conf"
-    if ! echo "$DETECTED_KERNELS" | grep -q "linux-lqx"; then
-        if echo "$DETECTED_KERNELS" | grep -q "linux-zen"; then
+    # Determine default kernel (prefer user-selected, then Liquorix, then others)
+    SELECTED_KERNEL="${S4D_KERNEL:-linux-lqx}"
+    DEFAULT_ENTRY="arch-${SELECTED_KERNEL}.conf"
+    # Verify the selected kernel was actually installed, otherwise pick what's available
+    if ! echo "$DETECTED_KERNELS" | grep -qw "$SELECTED_KERNEL"; then
+        if echo "$DETECTED_KERNELS" | grep -q "linux-lqx"; then
+            DEFAULT_ENTRY="arch-linux-lqx.conf"
+        elif echo "$DETECTED_KERNELS" | grep -q "linux-zen"; then
             DEFAULT_ENTRY="arch-linux-zen.conf"
-        elif echo "$DETECTED_KERNELS" | grep -q "linux"; then
+        elif echo "$DETECTED_KERNELS" | grep -qw "linux"; then
             DEFAULT_ENTRY="arch-linux.conf"
         fi
     fi
@@ -197,6 +206,13 @@ create_systemd_boot_entry() {
             INITRD="initramfs-linux-hardened.img"
             INITRD_FALLBACK="initramfs-linux-hardened-fallback.img"
             ENTRY_NAME="arch-linux-hardened"
+            ;;
+        linux-rt)
+            TITLE="Arch Linux (Realtime)"
+            VMLINUZ="vmlinuz-linux-rt"
+            INITRD="initramfs-linux-rt.img"
+            INITRD_FALLBACK="initramfs-linux-rt-fallback.img"
+            ENTRY_NAME="arch-linux-rt"
             ;;
         linux)
             TITLE="Arch Linux"
@@ -318,8 +334,6 @@ install_grub() {
 #                    MAIN INSTALLATION LOGIC
 # ═══════════════════════════════════════════════════════════════
 
-# First, copy kernel and initramfs to EFI partition for systemd-boot
-# (only needed for systemd-boot as GRUB reads from /boot directly)
 if [ "$BOOTLOADER" = "systemd-boot" ] && is_uefi; then
     info "Copying kernel files to EFI partition..."
     
@@ -345,6 +359,11 @@ if [ "$BOOTLOADER" = "systemd-boot" ] && is_uefi; then
                 cp -f /mnt/boot/vmlinuz-linux-hardened /mnt/boot/efi/ 2>/dev/null || true
                 cp -f /mnt/boot/initramfs-linux-hardened.img /mnt/boot/efi/ 2>/dev/null || true
                 cp -f /mnt/boot/initramfs-linux-hardened-fallback.img /mnt/boot/efi/ 2>/dev/null || true
+                ;;
+            linux-rt)
+                cp -f /mnt/boot/vmlinuz-linux-rt /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-rt.img /mnt/boot/efi/ 2>/dev/null || true
+                cp -f /mnt/boot/initramfs-linux-rt-fallback.img /mnt/boot/efi/ 2>/dev/null || true
                 ;;
             linux)
                 cp -f /mnt/boot/vmlinuz-linux /mnt/boot/efi/ 2>/dev/null || true
