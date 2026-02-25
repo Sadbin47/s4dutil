@@ -1,8 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════
 #  S4DUtil — Arch Linux Installer
-#  Main entry point — sources all TUI modules and orchestrates
-#  the installation wizard flow.
 # ═══════════════════════════════════════════════════════════════
 
 set -e
@@ -13,7 +11,6 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Core helpers (colors, status functions, draw_line, etc.)
 . "$SCRIPT_DIR/scripts/common.sh"
 
 # TUI modules
@@ -26,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/tui/install.sh"      # run_installation()
 
 # ─────────────────────────────────────────────────────────────
-#  Default configuration (overwritten during wizard)
+#  Default configuration
 # ─────────────────────────────────────────────────────────────
 
 TARGET_DISK=""
@@ -105,8 +102,6 @@ main() {
         exit 1
     fi
 
-    # Ensure we have a proper TTY for user input
-    # This is needed when running via curl | sh
     exec < /dev/tty
 
     main_menu
