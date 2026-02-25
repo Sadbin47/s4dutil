@@ -1,6 +1,6 @@
 #!/bin/sh
 # S4DUtil - User Setup Module
-# Handles hostname, root password, and user account creation
+# hostname, root password, and user account creation
 
 # Setup users
 setup_users() {

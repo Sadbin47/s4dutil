@@ -1,6 +1,5 @@
 #!/bin/sh
 # S4DUtil - Kernel & Bootloader Selection Module
-# Handles kernel choice and bootloader configuration
 
 # Select kernel
 select_kernel() {

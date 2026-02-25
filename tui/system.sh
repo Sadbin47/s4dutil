@@ -1,6 +1,6 @@
 #!/bin/sh
 # S4DUtil - System Configuration Module
-# Handles timezone, locale, and keyboard layout selection
+# timezone, locale, and keyboard layout selection
 
 # ─────────────────────────────────────────────────────────────
 #                        LOCALE DATA

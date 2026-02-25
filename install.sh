@@ -57,7 +57,7 @@ download_scripts() {
     git clone --depth 1 https://github.com/Sadbin47/s4dutil.git "$INSTALL_DIR" 2>/dev/null || {
         # Fallback: download individual files if git fails
         printf "%b\n" "${YELLOW}Downloading files directly...${RC}"
-        mkdir -p "$INSTALL_DIR/scripts"
+        mkdir -p "$INSTALL_DIR/scripts" "$INSTALL_DIR/tui"
         
         BASE_URL="https://raw.githubusercontent.com/Sadbin47/s4dutil/main"
         
@@ -68,10 +68,14 @@ download_scripts() {
             curl -fsSL "$BASE_URL/scripts/$script" -o "$INSTALL_DIR/scripts/$script"
         done
         
+        for module in header.sh disk.sh kernel.sh system.sh users.sh summary.sh install.sh; do
+            curl -fsSL "$BASE_URL/tui/$module" -o "$INSTALL_DIR/tui/$module"
+        done
+        
         curl -fsSL "$BASE_URL/s4dutil.sh" -o "$INSTALL_DIR/s4dutil.sh"
     }
     
-    chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/scripts/*.sh 2>/dev/null || true
+    chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/scripts/*.sh "$INSTALL_DIR"/tui/*.sh 2>/dev/null || true
     
     printf "%b\n" "${GREEN}Download complete!${RC}"
 }
