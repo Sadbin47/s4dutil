@@ -4,7 +4,7 @@
 S4DUtil is a minimal, interactive installer for Arch Linux. No compiling, no dependencies, no bloat—just pure shell scripts that guide you through a clean, safe, and fast installation, right from the official Live ISO.
 
 <div align="center">
-  <img src="https://github.com/user-attachments/assets/11b4d499-69e8-43b9-adb5-73883a466666" width="500" />
+  <img src="https://github.com/user-attachments/assets/6ef61f19-bd09-4f49-af0d-0272c857f1ef" width="500" />
 </div>
 
 ---
